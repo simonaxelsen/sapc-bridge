@@ -1,0 +1,3 @@
+# udp_sender.py only uses the Python standard library.
+# This file is intentionally empty — no external dependencies required.
+# Listed here so users have a reference point.
