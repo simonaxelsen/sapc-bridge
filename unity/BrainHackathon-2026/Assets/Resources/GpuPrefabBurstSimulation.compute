@@ -1,0 +1,182 @@
+#pragma kernel InitializeBurst
+#pragma kernel UpdateBurst
+
+struct InstanceState
+{
+    float3 position;
+    float scale;
+    float3 velocity;
+    float age;
+    float3 burstDirection;
+    float seed;
+};
+
+RWStructuredBuffer<InstanceState> _States;
+
+int _InstanceCount;
+float _DeltaTime;
+float _Time;
+float _SpawnRadius;
+float _MinSpeed;
+float _MaxSpeed;
+float _UpwardBias;
+float _BurstAcceleration;
+float _BurstDecay;
+float _VelocityDamping;
+float _MinScale;
+float _MaxScale;
+float _FlutterAmplitude;
+float _FlutterFrequency;
+float _ChaosStrength;
+float _ChaosFrequency;
+float _SeparationRadius;
+float _SeparationStrength;
+int _HasTarget;
+float3 _TargetPosition;
+float _AttractionStrength;
+float _MaxAttractionSpeed;
+
+float Hash11(float p)
+{
+    p = frac(p * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return frac(p);
+}
+
+float3 RandomDirection(float seed)
+{
+    float3 direction = float3(
+        Hash11(seed + 1.0) * 2.0 - 1.0,
+        abs(Hash11(seed + 2.0) * 2.0 - 1.0) + _UpwardBias,
+        Hash11(seed + 3.0) * 2.0 - 1.0);
+
+    return normalize(direction);
+}
+
+void BuildScatterBasis(float3 forward, out float3 side, out float3 lift)
+{
+    float3 reference = abs(forward.y) > 0.8 ? float3(1.0, 0.0, 0.0) : float3(0.0, 1.0, 0.0);
+    side = normalize(cross(reference, forward));
+    lift = normalize(cross(forward, side));
+}
+
+float3 SampleEscapeScatter(float3 burstDirection, float3 velocity, float seed, float age)
+{
+    float3 forward = length(velocity) > 0.0001 ? normalize(velocity) : burstDirection;
+    float3 side;
+    float3 lift;
+    BuildScatterBasis(forward, side, lift);
+
+    float flutterPhase = age * _FlutterFrequency + seed;
+    float chaosPhase = age * _ChaosFrequency + seed * 1.73;
+    float sideAmount = sin(flutterPhase) * 0.18 + sin(chaosPhase * 1.2) * 0.22;
+    float liftAmount = 0.08 + abs(cos(flutterPhase * 0.85 + seed * 0.4)) * 0.16 + sin(chaosPhase * 1.05) * 0.05;
+    float surge = 1.0 + 0.08 * sin(chaosPhase * 0.6 + seed * 0.5);
+    float3 scatter = forward * surge + side * sideAmount + lift * liftAmount;
+
+    float scatterLength = length(scatter);
+    return scatterLength > 0.0001 ? scatter / scatterLength : forward;
+}
+
+float3 ComputeSeparation(uint selfIndex, float3 selfPosition)
+{
+    if (_SeparationRadius <= 0.0)
+    {
+        return float3(0.0, 0.0, 0.0);
+    }
+
+    float radiusSqr = _SeparationRadius * _SeparationRadius;
+    float3 force = float3(0.0, 0.0, 0.0);
+    float neighborCount = 0.0;
+
+    [loop]
+    for (uint otherIndex = 0; otherIndex < _InstanceCount; otherIndex++)
+    {
+        if (otherIndex == selfIndex)
+        {
+            continue;
+        }
+
+        float3 away = selfPosition - _States[otherIndex].position;
+        float distanceSqr = dot(away, away);
+        if (distanceSqr <= 0.0001 || distanceSqr > radiusSqr)
+        {
+            continue;
+        }
+
+        float distance = sqrt(distanceSqr);
+        float weight = 1.0 - distance / _SeparationRadius;
+        force += away / distance * weight;
+        neighborCount += 1.0;
+    }
+
+    return neighborCount > 0.0 ? force / neighborCount : float3(0.0, 0.0, 0.0);
+}
+
+[numthreads(64, 1, 1)]
+void InitializeBurst(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint index = dispatchThreadId.x;
+    if (index >= _InstanceCount)
+    {
+        return;
+    }
+
+    float seed = index * 1.6180339 + 17.0;
+    float3 direction = RandomDirection(seed);
+    float radius = Hash11(seed + 4.0) * _SpawnRadius;
+
+    InstanceState state;
+    state.position = direction * radius;
+    state.scale = lerp(_MinScale, _MaxScale, Hash11(seed + 5.0));
+    state.velocity = direction * lerp(_MinSpeed, _MaxSpeed, Hash11(seed + 6.0));
+    state.age = 0.0;
+    state.burstDirection = direction;
+    state.seed = seed;
+    _States[index] = state;
+}
+
+[numthreads(64, 1, 1)]
+void UpdateBurst(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint index = dispatchThreadId.x;
+    if (index >= _InstanceCount)
+    {
+        return;
+    }
+
+    InstanceState state = _States[index];
+    state.age += _DeltaTime;
+    float burstWeight = exp(-state.age * _BurstDecay);
+    float3 radialDirection = length(state.position) > 0.0001 ? normalize(state.position) : state.burstDirection;
+    float3 headingDirection = length(state.velocity) > 0.0001 ? normalize(state.velocity) : radialDirection;
+
+    state.velocity += radialDirection * (_BurstAcceleration * (0.7 + burstWeight) * _DeltaTime);
+    state.velocity += headingDirection * (_FlutterAmplitude * 0.18 * _DeltaTime);
+    state.velocity += SampleEscapeScatter(state.burstDirection, state.velocity, state.seed, state.age)
+        * ((_FlutterAmplitude * 0.22 + _ChaosStrength * (0.08 + burstWeight * 0.25)) * _DeltaTime);
+    state.velocity += ComputeSeparation(index, state.position) * (_SeparationStrength * _DeltaTime);
+
+    if (_HasTarget != 0)
+    {
+        float3 toTarget = _TargetPosition - state.position;
+        float distanceToTarget = length(toTarget);
+        if (distanceToTarget > 0.0001)
+        {
+            float attractionBlend = saturate(1.0 - burstWeight);
+            state.velocity += (toTarget / distanceToTarget) * (_AttractionStrength * attractionBlend * _DeltaTime);
+        }
+    }
+
+    state.velocity /= (1.0 + _VelocityDamping * _DeltaTime);
+
+    float speed = length(state.velocity);
+    if (speed > _MaxAttractionSpeed && speed > 0.0001)
+    {
+        state.velocity = (state.velocity / speed) * _MaxAttractionSpeed;
+    }
+
+    state.position += state.velocity * _DeltaTime;
+    _States[index] = state;
+}

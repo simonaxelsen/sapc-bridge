@@ -1,0 +1,113 @@
+#pragma kernel InitializeMeteors
+#pragma kernel UpdateMeteors
+
+struct MeteorState
+{
+    float3 position;
+    float speed;
+    float scale;
+    float age;
+    float lifetime;
+    float seed;
+};
+
+RWStructuredBuffer<MeteorState> _States;
+RWStructuredBuffer<float4> _InstanceData;
+
+int _InstanceCount;
+float _DeltaTime;
+float _Time;
+float3 _TargetPosition;
+float _StoppingDistance;
+float _SpawnXMin;
+float _SpawnXMax;
+float _SpawnY;
+float _SpawnZ;
+float _MinSpeed;
+float _MaxSpeed;
+float _MinScale;
+float _MaxScale;
+float _MinLifetime;
+float _MaxLifetime;
+
+float Hash11(float p)
+{
+    p = frac(p * 0.1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return frac(p);
+}
+
+float2 Hash21(float p)
+{
+    return float2(Hash11(p + 1.37), Hash11(p + 5.93));
+}
+
+void RespawnMeteor(uint index, float seedOffset, out MeteorState state)
+{
+    float baseSeed = index * 1.6180339 + seedOffset + _Time * 0.173;
+    float2 randomPair = Hash21(baseSeed);
+
+    state.position = float3(
+        lerp(_SpawnXMin, _SpawnXMax, randomPair.x),
+        _SpawnY,
+        _SpawnZ);
+
+    state.speed = lerp(_MinSpeed, _MaxSpeed, Hash11(baseSeed + 11.0));
+    state.scale = lerp(_MinScale, _MaxScale, Hash11(baseSeed + 17.0));
+    state.age = 0.0;
+    state.lifetime = lerp(_MinLifetime, _MaxLifetime, Hash11(baseSeed + 23.0));
+    state.seed = baseSeed;
+}
+
+[numthreads(64, 1, 1)]
+void InitializeMeteors(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint index = dispatchThreadId.x;
+    if (index >= _InstanceCount)
+    {
+        return;
+    }
+
+    MeteorState state;
+    RespawnMeteor(index, 31.0, state);
+
+    float yBlend = Hash11(index * 13.0 + 7.0);
+    state.position.y = lerp(_TargetPosition.y, _SpawnY, yBlend);
+    state.age = Hash11(index * 29.0 + 3.0) * state.lifetime;
+
+    _States[index] = state;
+    _InstanceData[index] = float4(state.position, state.scale);
+}
+
+[numthreads(64, 1, 1)]
+void UpdateMeteors(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint index = dispatchThreadId.x;
+    if (index >= _InstanceCount)
+    {
+        return;
+    }
+
+    MeteorState state = _States[index];
+    float2 toTarget = _TargetPosition.xy - state.position.xy;
+    float distanceToTarget = length(toTarget);
+
+    if (distanceToTarget > 0.0001)
+    {
+        state.position.xy += normalize(toTarget) * state.speed * _DeltaTime;
+    }
+
+    state.age += _DeltaTime;
+
+    bool reachedTarget = distanceToTarget <= _StoppingDistance;
+    bool expired = state.age >= state.lifetime;
+
+    if (reachedTarget || expired)
+    {
+        RespawnMeteor(index, state.seed + 53.0, state);
+    }
+
+    _States[index] = state;
+    _InstanceData[index] = float4(state.position, state.scale);
+}
