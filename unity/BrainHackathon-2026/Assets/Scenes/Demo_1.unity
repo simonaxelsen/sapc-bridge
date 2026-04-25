@@ -561,8 +561,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Beam_scale
   port: 1000
   targetCapsule: {fileID: 1068371253}
-  minScale: 0.1
-  maxScale: 2
+  minScale: 1
+  maxScale: 1000
   smoothing: 8
   devRotationEnabled: 1
   rotationSpeed: 90
