@@ -27,16 +27,33 @@ public class Beam_scale : MonoBehaviour
     [Tooltip("Degrees per second when holding an arrow key")]
     public float rotationSpeed = 90f;
 
-    // World-space position of the base (bottom tip) — stays fixed as Y scales
+    // Fixed world-space position of the bottom anchor
     private Vector3 _baseWorldPos;
+
+    // Actual bottom point of the mesh in local space
+    private Vector3 _baseLocalPoint;
 
     void Start()
     {
         if (targetCapsule == null)
             targetCapsule = transform;
 
-        // Snapshot the base anchor in world space
-        _baseWorldPos = GetBaseWorldPos();
+        // Find the actual bottom point of the mesh in local space
+        MeshFilter mf = targetCapsule.GetComponent<MeshFilter>();
+
+        if (mf != null && mf.sharedMesh != null)
+        {
+            Bounds b = mf.sharedMesh.bounds;
+            _baseLocalPoint = new Vector3(0f, b.min.y, 0f);
+        }
+        else
+        {
+            // Fallback for a default Unity capsule-like object
+            _baseLocalPoint = new Vector3(0f, -1f, 0f);
+        }
+
+        // Store the original world-space position of the bottom anchor
+        _baseWorldPos = targetCapsule.TransformPoint(_baseLocalPoint);
 
         // Auto-find SAPCReceiver if not assigned
         if (sapcReceiver == null)
@@ -48,68 +65,85 @@ public class Beam_scale : MonoBehaviour
             Debug.Log("Beam_scale: Connected to SAPCReceiver");
     }
 
-
-
     void Update()
     {
         HandleDevRotation();
         HandleScaling();
     }
 
-    // ── Arrow-key rotation (Z axis, so beam sweeps in the XY plane) ──────────
+    // ── Arrow-key rotation, pivoting around the locked bottom anchor ──────────
     private void HandleDevRotation()
     {
         if (!devRotationEnabled) return;
+        if (Keyboard.current == null) return;
 
         float rotInput = 0f;
-        if (Keyboard.current.leftArrowKey.isPressed)  rotInput =  1f;
-        if (Keyboard.current.rightArrowKey.isPressed) rotInput = -1f;
+
+        if (Keyboard.current.leftArrowKey.isPressed)
+            rotInput = 1f;
+
+        if (Keyboard.current.rightArrowKey.isPressed)
+            rotInput = -1f;
 
         if (rotInput == 0f) return;
 
-        // Rotate around Z, pivoting about the base anchor so it swings like a turret
-        targetCapsule.RotateAround(_baseWorldPos, Vector3.forward, rotInput * rotationSpeed * Time.deltaTime);
+        targetCapsule.RotateAround(
+            _baseWorldPos,
+            Vector3.forward,
+            rotInput * rotationSpeed * Time.deltaTime
+        );
 
-        // After rotating, re-lock the base to its fixed world position
         RepositionToBase();
     }
 
-    // ── Y-only scaling anchored to the base ──────────────────────────────────
+    // ── Y-only scaling anchored to the original bottom point ──────────────────
     private void HandleScaling()
     {
-        float rawValue = (sapcReceiver != null) ? sapcReceiver.CurrentValue : 0.5f;
+        float rawValue = sapcReceiver != null ? sapcReceiver.CurrentValue : 0.5f;
+        rawValue = Mathf.Clamp01(rawValue);
 
         float targetY = Mathf.Lerp(minScale, maxScale, rawValue);
-        Vector3 current = targetCapsule.localScale;
-        float newY = Mathf.Lerp(current.y, targetY, Time.deltaTime * smoothing);
 
-        targetCapsule.localScale = new Vector3(current.x, newY, current.z);
+        Vector3 currentScale = targetCapsule.localScale;
+        float newY = Mathf.Lerp(currentScale.y, targetY, Time.deltaTime * smoothing);
 
-        // Directly pin center = base + up * scaleY so only the tip end moves
-        targetCapsule.position = _baseWorldPos + targetCapsule.up * (newY * 0.5f);
+        targetCapsule.localScale = new Vector3(
+            currentScale.x,
+            newY,
+            currentScale.z
+        );
+
+        // Move the object so the original bottom point stays fixed
+        RepositionToBase();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    // World-space base = center minus up * scaleY
-    private Vector3 GetBaseWorldPos()
-    {
-        return targetCapsule.position - targetCapsule.up * targetCapsule.localScale.y;
-    }
-
-    // After rotation, repin position so base stays locked
     private void RepositionToBase()
     {
-        targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+        Vector3 currentBaseWorld = targetCapsule.TransformPoint(_baseLocalPoint);
+        Vector3 correction = _baseWorldPos - currentBaseWorld;
+
+        targetCapsule.position += correction;
     }
 
-    // Show base anchor and current base point in the editor
+    private Vector3 GetCurrentBaseWorldPos()
+    {
+        if (targetCapsule == null)
+            return transform.position;
+
+        return targetCapsule.TransformPoint(_baseLocalPoint);
+    }
+
     void OnDrawGizmosSelected()
     {
-        if (targetCapsule == null) return;
+        if (targetCapsule == null)
+            return;
+
         Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(GetBaseWorldPos(), 0.1f);
+        Gizmos.DrawWireSphere(Application.isPlaying ? _baseWorldPos : GetCurrentBaseWorldPos(), 0.1f);
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(GetCurrentBaseWorldPos(), 0.06f);
     }
-
-
 }
