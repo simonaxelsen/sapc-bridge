@@ -16,7 +16,7 @@ public class Beam_scale : MonoBehaviour
     public Transform targetCapsule;
 
     [Tooltip("Minimum Y scale when value is 0.0")]
-    public float minScale = 0.1f;
+    public float minScale = 1f;
 
     [Tooltip("Maximum Y scale when value is 1.0")]
     public float maxScale = 2.0f;
@@ -60,6 +60,7 @@ public class Beam_scale : MonoBehaviour
     private volatile bool   isRunning  = false;
 
     private Vector3 _baseWorldPos;
+    private Transform topObject;
 
     void Start()
     {
@@ -69,6 +70,7 @@ public class Beam_scale : MonoBehaviour
             targetCapsule = transform;
 
         _baseWorldPos = GetBaseWorldPos();
+        topObject = GameObject.FindWithTag("top")?.transform;
 
         // Wire up buttons
         if (rotateModeButton != null) rotateModeButton.onClick.AddListener(() => SetMode(DevMode.Rotate));
@@ -164,9 +166,12 @@ public class Beam_scale : MonoBehaviour
 
         if (_devMode == DevMode.Rotate)
         {
-            targetCapsule.RotateAround(_baseWorldPos, Vector3.forward,
-                                       input * rotationSpeed * Time.deltaTime);
-            RepositionToBase();
+            float rotation = input * rotationSpeed * Time.deltaTime;
+            if (CanRotate(rotation))
+            {
+                targetCapsule.RotateAround(_baseWorldPos, Vector3.forward, rotation);
+                RepositionToBase();
+            }
         }
         else
         {
@@ -175,7 +180,7 @@ public class Beam_scale : MonoBehaviour
         }
     }
 
-    // ── Y-only scaling anchored to the base ──────────────────────────────────
+    // ── Y-only scaling anchored to the center point (grows both up and down) ──
     private void HandleScaling()
     {
         float rawValue;
@@ -186,7 +191,8 @@ public class Beam_scale : MonoBehaviour
         float newY      = Mathf.Lerp(current.y, targetY, Time.deltaTime * smoothing);
 
         targetCapsule.localScale = new Vector3(current.x, newY, current.z);
-        targetCapsule.position   = _baseWorldPos + targetCapsule.up * newY;
+        // Position the center of the beam at the base, so it grows equally up and down
+        targetCapsule.position   = _baseWorldPos + targetCapsule.up * (newY / 2f);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -195,6 +201,25 @@ public class Beam_scale : MonoBehaviour
 
     private void RepositionToBase() =>
         targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+
+    // Check if rotation would keep the top object at or above y=0.01
+    private bool CanRotate(float rotationDelta)
+    {
+        if (topObject == null) return true;
+
+        // Simulate the rotation
+        Quaternion originalRotation = targetCapsule.rotation;
+        targetCapsule.RotateAround(_baseWorldPos, Vector3.forward, rotationDelta);
+        
+        // Check the top object's Y position after rotation
+        float topY = topObject.position.y;
+        
+        // Restore original rotation
+        targetCapsule.rotation = originalRotation;
+        
+        // Allow rotation only if top object stays at or above y=0.01
+        return topY >= 0.01f;
+    }
 
     void OnDrawGizmosSelected()
     {
