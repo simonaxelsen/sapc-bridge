@@ -1241,16 +1241,19 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1277918060}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41d396856847afb4c93bf57645b9a57d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Beam_scale
   port: 1000
+  floatValueIndex: -1
+  autoEdgeEpsilon: 0.01
   targetCapsule: {fileID: 437710418710946534}
   minScale: 0.1
   maxScale: 2
   smoothing: 8
+  eegAmplification: 3
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
@@ -1271,6 +1274,8 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
   inactiveColor: {r: 0.25, g: 0.25, b: 0.25, a: 1}
   verboseDebug: 1
+  debugLogRateHz: 10
+  logInvalidPackets: 1
 --- !u!1 &1383906267
 GameObject:
   m_ObjectHideFlags: 0
@@ -2381,8 +2386,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.13886882, y: -0.69333655, z: -0.69333637, w: 0.13886902}
   m_LocalPosition: {x: -0.05699999, y: -0.066000134, z: 0.58399993}
-  m_LocalScale: {x: 0.18, y: 0.60000014, z: 0.18}
-  m_ConstrainProportionsScale: 1
+  m_LocalScale: {x: 0.18, y: 0.37, z: 0.18}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1260453880}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2393,7 +2398,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6646386282554718827}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 58f93154c16267a4b9d02a015dea032b, type: 3}
   m_Name: 
@@ -2629,10 +2634,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Beam_scale
   port: 1000
+  floatValueIndex: -1
+  autoEdgeEpsilon: 0.01
   targetCapsule: {fileID: 437710418710946534}
   minScale: 1
-  maxScale: 5
+  maxScale: 2
   smoothing: 8
+  eegAmplification: 0
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
@@ -2653,6 +2661,8 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
   inactiveColor: {r: 0.25, g: 0.25, b: 0.25, a: 1}
   verboseDebug: 1
+  debugLogRateHz: 10
+  logInvalidPackets: 1
 --- !u!33 &8808667814828026901
 MeshFilter:
   m_ObjectHideFlags: 0
