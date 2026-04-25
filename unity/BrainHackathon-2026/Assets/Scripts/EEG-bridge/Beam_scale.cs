@@ -503,10 +503,6 @@ public class Beam_scale : MonoBehaviour
     private void HandleArrowKeys()
     {
         if (Keyboard.current == null) return;
-
-    private void HandleArrowKeys()
-    {
-        if (Keyboard.current == null) return;
         if (Keyboard.current.digit1Key.wasPressedThisFrame) SetMode(DevMode.Rotate);
         if (Keyboard.current.digit2Key.wasPressedThisFrame) SetMode(DevMode.Move);
 
@@ -543,8 +539,10 @@ public class Beam_scale : MonoBehaviour
     private Vector3 GetBaseWorldPos() =>
         targetCapsule.position - targetCapsule.up * targetCapsule.localScale.y;
 
-    private void RepositionToBase() =>
+    private void RepositionToBase()
+    {
         targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+    }
 
     /// <summary>
     /// Check if rotating to the given angle would keep the top object at or above y=2.
