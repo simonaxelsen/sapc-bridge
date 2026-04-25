@@ -17,7 +17,7 @@ public class Beam_scale : MonoBehaviour
     public Transform targetCapsule;
 
     [Tooltip("Minimum Y scale when value is 0.0")]
-    public float minScale = 0.1f;
+    public float minScale = 1f;
 
     [Tooltip("Maximum Y scale when value is 1.0")]
     public float maxScale = 2.0f;
@@ -80,9 +80,7 @@ public class Beam_scale : MonoBehaviour
     private volatile bool   isRunning  = false;
 
     private Vector3 _baseWorldPos;
-    private Quaternion _baseRotation;
-    private float _zRotationDegrees;
-    private float _currentGazePitch;
+    private Transform topObject;
 
     void Start()
     {
@@ -92,17 +90,7 @@ public class Beam_scale : MonoBehaviour
             targetCapsule = transform;
 
         _baseWorldPos = GetBaseWorldPos();
-        _baseRotation = targetCapsule.rotation;
-
-        if (gazePitchEnabled)
-        {
-            TobiiAPI.SubscribeGazePointData();
-        }
-
-        if (gazeCamera == null)
-        {
-            gazeCamera = Camera.main;
-        }
+        topObject = GameObject.FindWithTag("top")?.transform;
 
         // Wire up buttons
         if (rotateModeButton != null) rotateModeButton.onClick.AddListener(() => SetMode(DevMode.Rotate));
@@ -200,7 +188,12 @@ public class Beam_scale : MonoBehaviour
 
         if (_devMode == DevMode.Rotate)
         {
-            _zRotationDegrees += input * rotationSpeed * Time.deltaTime;
+            float rotation = input * rotationSpeed * Time.deltaTime;
+            if (CanRotate(rotation))
+            {
+                targetCapsule.RotateAround(_baseWorldPos, Vector3.forward, rotation);
+                RepositionToBase();
+            }
         }
         else
         {
@@ -208,38 +201,7 @@ public class Beam_scale : MonoBehaviour
         }
     }
 
-    private void HandleGazePitch()
-    {
-        if (gazeCamera == null)
-        {
-            gazeCamera = Camera.main;
-            if (gazeCamera == null)
-                return;
-        }
-
-        GazePoint gazePoint = TobiiAPI.GetGazePoint();
-        if (!gazePoint.IsValid)
-            return;
-
-        Rect pixelRect = gazeCamera.pixelRect;
-        float normalizedY = Mathf.Clamp01(
-            Mathf.InverseLerp(pixelRect.yMin, pixelRect.yMax, gazePoint.Screen.y));
-        if (invertGazeY)
-            normalizedY = 1f - normalizedY;
-
-        float targetPitch = Mathf.Lerp(minGazePitch, maxGazePitch, normalizedY);
-        _currentGazePitch = Mathf.LerpAngle(_currentGazePitch, targetPitch, Time.deltaTime * gazePitchSmoothing);
-    }
-
-    private void ApplyTransformFromState()
-    {
-        Quaternion zRotation = Quaternion.AngleAxis(_zRotationDegrees, Vector3.forward);
-        Quaternion localPitch = Quaternion.AngleAxis(_currentGazePitch, Vector3.right);
-        targetCapsule.rotation = zRotation * _baseRotation * localPitch;
-        RepositionToBase();
-    }
-
-    // ── Y-only scaling anchored to the base ──────────────────────────────────
+    // ── Y-only scaling anchored to the center point (grows both up and down) ──
     private void HandleScaling()
     {
         float rawValue;
@@ -250,7 +212,8 @@ public class Beam_scale : MonoBehaviour
         float newY      = Mathf.Lerp(current.y, targetY, Time.deltaTime * smoothing);
 
         targetCapsule.localScale = new Vector3(current.x, newY, current.z);
-        targetCapsule.position   = _baseWorldPos + targetCapsule.up * newY;
+        // Position the center of the beam at the base, so it grows equally up and down
+        targetCapsule.position   = _baseWorldPos + targetCapsule.up * (newY / 2f);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -259,6 +222,56 @@ public class Beam_scale : MonoBehaviour
 
     private void RepositionToBase() =>
         targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+
+    // Check if rotation would keep the top object at or above y=0.01
+    private bool CanRotate(float rotationDelta)
+    {
+        if (topObject == null) return true;
+
+        // Simulate the rotation
+        Quaternion originalRotation = targetCapsule.rotation;
+        targetCapsule.RotateAround(_baseWorldPos, Vector3.forward, rotationDelta);
+        
+        // Check the top object's Y position after rotation
+        float topY = topObject.position.y;
+        
+        // Restore original rotation
+        targetCapsule.rotation = originalRotation;
+        
+        // Allow rotation only if top object stays at or above y=0.01
+        return topY >= 0.01f;
+    }
+
+    // ── Gaze control ──────────────────────────────────────────────────────────
+    private float _currentGazePitch = 0f;
+
+    private void HandleGazePitch()
+    {
+        if (gazeCamera == null)
+            gazeCamera = Camera.main;
+
+        var gazePoint = TobiiAPI.GetGazePoint();
+        if (!gazePoint.IsValid) return;
+
+        // Normalize screen position to -1 to 1 range
+        Vector3 screenPos = gazePoint.Screen;
+        float normalizedY = (screenPos.y / gazeCamera.pixelHeight) * 2f - 1f;
+        if (invertGazeY) normalizedY = -normalizedY;
+
+        // Map to pitch angle
+        float targetPitch = Mathf.Lerp(minGazePitch, maxGazePitch, (normalizedY + 1f) / 2f);
+        _currentGazePitch = Mathf.Lerp(_currentGazePitch, targetPitch, Time.deltaTime * gazePitchSmoothing);
+    }
+
+    private void ApplyTransformFromState()
+    {
+        if (gazePitchEnabled && targetCapsule != null)
+        {
+            // Apply pitch rotation around X-axis relative to the base
+            Quaternion pitchRotation = Quaternion.AngleAxis(_currentGazePitch, Vector3.right);
+            targetCapsule.rotation = pitchRotation * targetCapsule.rotation;
+        }
+    }
 
     void OnDrawGizmosSelected()
     {
