@@ -1254,19 +1254,18 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
+  gazeMoveEnabled: 1
+  gazeMoveSpeed: 4
+  gazeMoveDeadZone: 0.15
+  gazeMoveMinX: -5
+  gazeMoveMaxX: 5
+  invertGazeX: 1
   gazePitchEnabled: 0
-  gazeYawEnabled: 1
   gazeCamera: {fileID: 0}
   minGazePitch: -35
   maxGazePitch: 35
-  minGazeYaw: -22
-  maxGazeYaw: 22
-  gazePitchSensitivity: 1.6
-  gazeYawSensitivity: 1.8
   gazePitchSmoothing: 16
-  gazeYawSmoothing: 24
   invertGazeY: 0
-  invertGazeX: 1
   rotateModeButton: {fileID: 0}
   moveModeButton: {fileID: 0}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
@@ -2382,8 +2381,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.13886882, y: -0.69333655, z: -0.69333637, w: 0.13886902}
   m_LocalPosition: {x: -0.05699999, y: -0.066000134, z: 0.58399993}
-  m_LocalScale: {x: 0.07145921, y: 0.23819742, z: 0.07145923}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.73, y: 2.4333339, z: 0.73}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 1260453880}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2637,19 +2636,18 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
+  gazeMoveEnabled: 1
+  gazeMoveSpeed: 4
+  gazeMoveDeadZone: 0.15
+  gazeMoveMinX: -5
+  gazeMoveMaxX: 5
+  invertGazeX: 1
   gazePitchEnabled: 0
-  gazeYawEnabled: 1
   gazeCamera: {fileID: 0}
   minGazePitch: -35
   maxGazePitch: 35
-  minGazeYaw: -22
-  maxGazeYaw: 22
-  gazePitchSensitivity: 1.6
-  gazeYawSensitivity: 1.8
   gazePitchSmoothing: 16
-  gazeYawSmoothing: 24
   invertGazeY: 0
-  invertGazeX: 1
   rotateModeButton: {fileID: 1610090926}
   moveModeButton: {fileID: 72748613}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
@@ -2662,7 +2660,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6646386282554718827}
-  m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 3341590269825601168, guid: b2ba26345ded1ef4ba3132d42ba08330, type: 3}
 --- !u!114 &8808667814828026902
 MonoBehaviour:
   m_ObjectHideFlags: 0

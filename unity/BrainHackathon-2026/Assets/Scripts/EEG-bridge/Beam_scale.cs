@@ -30,7 +30,7 @@ public class Beam_scale : MonoBehaviour
     public bool devControlsEnabled = true;
 
     [Tooltip("Degrees per second when rotating")]
-    public float rotationSpeed = 30f;
+    public float rotationSpeed = 90f;
 
     [Tooltip("Units per second when moving")]
     public float moveSpeed = 3f;
@@ -120,6 +120,9 @@ public class Beam_scale : MonoBehaviour
         _baseWorldPos = GetBaseWorldPos();
         topObject     = GameObject.FindWithTag("top")?.transform;
 
+        if (gazeMoveEnabled || gazePitchEnabled)
+            TobiiAPI.SubscribeGazePointData();
+
         if (rotateModeButton != null) rotateModeButton.onClick.AddListener(() => SetMode(DevMode.Rotate));
         if (moveModeButton   != null) moveModeButton.onClick.AddListener(  () => SetMode(DevMode.Move));
         RefreshButtonColors();
@@ -188,14 +191,26 @@ public class Beam_scale : MonoBehaviour
         var gazePoint = TobiiAPI.GetGazePoint();
         if (!gazePoint.IsValid) return;
 
-        // Normalise X to –1 … +1 (left edge = –1, right edge = +1)
-        float normX = (gazePoint.Screen.x / gazeCamera.pixelWidth) * 2f - 1f;
+        Rect pixelRect = gazeCamera != null
+            ? gazeCamera.pixelRect
+            : new Rect(0f, 0f, Screen.width, Screen.height);
+
+        // Normalise X to -1 ... +1 (left edge = -1, right edge = +1)
+        float normX = Mathf.InverseLerp(pixelRect.xMin, pixelRect.xMax, gazePoint.Screen.x) * 2f - 1f;
         if (invertGazeX) normX = -normX;
 
         float velocity = ApplyDeadZone(normX, gazeMoveDeadZone);
 
-        _baseWorldPos.x += velocity * gazeMoveSpeed * Time.deltaTime;
-        _baseWorldPos.x  = Mathf.Clamp(_baseWorldPos.x, gazeMoveMinX, gazeMoveMaxX);
+        if (_devMode == DevMode.Rotate)
+        {
+            float delta = velocity * rotationSpeed * Time.deltaTime;
+            _currentAngle = Mathf.Clamp(_currentAngle + delta, -180f, 180f);
+        }
+        else
+        {
+            _baseWorldPos.x += velocity * gazeMoveSpeed * Time.deltaTime;
+            _baseWorldPos.x  = Mathf.Clamp(_baseWorldPos.x, gazeMoveMinX, gazeMoveMaxX);
+        }
     }
 
     /// <summary>
@@ -231,13 +246,13 @@ public class Beam_scale : MonoBehaviour
     {
         if (targetCapsule == null) return;
 
-        // Build final rotation from both manual angle and gaze pitch
+        // Build final rotation: manual rotation on Z-axis, gaze pitch on X-axis
         Quaternion manualRotation = Quaternion.AngleAxis(_currentAngle, Vector3.forward);
         
         if (gazePitchEnabled)
         {
-            Quaternion gazeRotation = Quaternion.AngleAxis(_currentGazePitch, Vector3.forward);
-            targetCapsule.rotation = gazeRotation * manualRotation;
+            Quaternion gazeRotation = Quaternion.AngleAxis(_currentGazePitch, Vector3.right);
+            targetCapsule.rotation = manualRotation * gazeRotation;
         }
         else
         {
@@ -277,6 +292,8 @@ public class Beam_scale : MonoBehaviour
 
     private void HandleArrowKeys()
     {
+        if (Keyboard.current == null) return;
+
         if (Keyboard.current.digit1Key.wasPressedThisFrame) SetMode(DevMode.Rotate);
         if (Keyboard.current.digit2Key.wasPressedThisFrame) SetMode(DevMode.Move);
 
