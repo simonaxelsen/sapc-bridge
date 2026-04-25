@@ -6,6 +6,7 @@ using Tobii.Gaming;
 public class TobiiSignal : MonoBehaviour
 {
     [Header("Dot Settings")]
+    public Sprite mainDotSprite;
     public float dotSize = 28f;
     public float trailDotSize = 18f;
     public int trailLength = 25;
@@ -107,7 +108,7 @@ public class TobiiSignal : MonoBehaviour
         dotObject.transform.SetParent(canvas.transform, false);
 
         mainDot = dotObject.AddComponent<Image>();
-        mainDot.sprite = CreateCircleSprite(64);
+        mainDot.sprite = mainDotSprite != null ? mainDotSprite : CreateCircleSprite(64);
         mainDot.color = new Color(0f, 0.75f, 1f, 0.95f);
 
         RectTransform rect = mainDot.rectTransform;
@@ -125,7 +126,7 @@ public class TobiiSignal : MonoBehaviour
             trailDot.sprite = CreateCircleSprite(64);
 
             float alpha = Mathf.Lerp(0.5f, 0.02f, (float)i / trailLength);
-            trailDot.color = new Color(0f, 0.75f, 1f, alpha);
+            trailDot.color = new Color(1f, 0f, 0f, alpha);
 
             RectTransform rect = trailDot.rectTransform;
             rect.sizeDelta = new Vector2(trailDotSize, trailDotSize);
