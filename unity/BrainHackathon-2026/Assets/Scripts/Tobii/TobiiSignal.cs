@@ -80,7 +80,7 @@ public class TobiiSignal : MonoBehaviour
 
         if (printGazeToConsole)
         {
-            Debug.Log($"Tobii gaze: {screenPosition}");
+            //Debug.Log($"Tobii gaze: {screenPosition}");
         }
     }
 

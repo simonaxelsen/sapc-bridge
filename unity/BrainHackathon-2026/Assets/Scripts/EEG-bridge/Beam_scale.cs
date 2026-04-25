@@ -12,6 +12,13 @@ public class Beam_scale : MonoBehaviour
     [Header("Network")]
     public int port = 1000;
 
+    [Header("Packet Parsing")]
+    [Tooltip("For float-array packets, choose this index. -1 = auto-select likely control value.")]
+    public int floatValueIndex = -1;
+
+    [Tooltip("Auto mode: treat values near 0/1 as edge flags and prefer values inside this margin.")]
+    public float autoEdgeEpsilon = 0.01f;
+
     [Header("Capsule Control")]
     [Tooltip("The 3D capsule to scale (leave empty to use this GameObject)")]
     public Transform targetCapsule;
@@ -25,7 +32,9 @@ public class Beam_scale : MonoBehaviour
     [Tooltip("Visual smoothing (higher = faster)")]
     public float smoothing = 8f;
 
-    [Header("Dev Controls")]
+    [Header("EEG Scaling")]
+    [Tooltip("Amplify EEG values to make beam scale changes more dramatic")]
+    public float eegAmplification = 3f;
     [Tooltip("Enable dev controls in Play mode")]
     public bool devControlsEnabled = true;
 
@@ -90,23 +99,40 @@ public class Beam_scale : MonoBehaviour
     [Tooltip("Print received values to console")]
     public bool verboseDebug = true;
 
+    [Tooltip("Log frequency in Hz for received values (set <= 0 to log every packet)")]
+    public float debugLogRateHz = 10f;
+
+    [Tooltip("Also warn when a packet cannot be parsed")]
+    public bool logInvalidPackets = true;
+
+    // ── Public read-only EEG value ────────────────────────────────────────────
+    /// <summary>Current normalised EEG value (0.0 – 1.0).</summary>
+    public float CurrentEEGValue { get; private set; } = 0f;
+
     // ── internals ─────────────────────────────────────────────────────────────
     private enum DevMode { Rotate, Move }
     private DevMode _devMode = DevMode.Rotate;
 
     private Thread    receiveThread;
     private UdpClient client;
-    private float     receivedValue = 0f;
     private readonly object lockObject = new object();
     private volatile bool   isRunning  = false;
+
+    // Thread → Update hand-off
+    private float  _latestReceivedValue  = 0f;
+    private bool   _hasNewValue          = false;
+    private bool   _hasInvalidPacket     = false;
+    private string _latestInvalidPacket  = "";
+    private float  _nextLogTime          = 0f;
+
+    // Scaling state
+    private float _sapcValue = 0f;
 
     private Vector3   _baseWorldPos;
     private Transform topObject;
 
     private float _currentGazePitch = 0f;
-
-    // Tracks cumulative rotation so we can clamp to ±90° (180° total arc)
-    private float _currentAngle = 0f;
+    private float _currentAngle     = 0f;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -145,6 +171,8 @@ public class Beam_scale : MonoBehaviour
         Debug.Log($"Beam_scale: Listening on UDP:{port}");
     }
 
+    // ── UDP receive thread ────────────────────────────────────────────────────
+
     private void ReceiveData()
     {
         while (isRunning)
@@ -153,35 +181,221 @@ public class Beam_scale : MonoBehaviour
             {
                 IPEndPoint anyIP = new IPEndPoint(IPAddress.Any, 0);
                 byte[] data = client.Receive(ref anyIP);
-                string text = Encoding.UTF8.GetString(data);
 
-                if (float.TryParse(text,
-                        System.Globalization.NumberStyles.Float,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        out float parsed)
-                    && !float.IsNaN(parsed) && parsed >= 0f && parsed <= 1f)
+                float parsed;
+                string packetForDebug;
+                bool ok = TryParseIncomingPacket(data, out parsed, out packetForDebug);
+
+                if (ok && !float.IsNaN(parsed))
                 {
-                    lock (lockObject) { receivedValue = parsed; }
-                    if (verboseDebug) Debug.Log($"EEG: {parsed:F4}");
+                    parsed = Mathf.Clamp01(parsed);
+                    lock (lockObject)
+                    {
+                        _sapcValue             = parsed;
+                        _latestReceivedValue   = parsed;
+                        _hasNewValue           = true;
+                    }
+                }
+                else
+                {
+                    lock (lockObject)
+                    {
+                        _latestInvalidPacket = packetForDebug;
+                        _hasInvalidPacket    = true;
+                    }
                 }
             }
-            catch (SocketException)                { }
+            catch (SocketException)                { /* receive timeout — normal */ }
             catch (System.ObjectDisposedException) { break; }
             catch (System.Exception e)             { Debug.LogWarning($"Beam_scale: {e.Message}"); }
         }
     }
 
+    // ── Packet parsing (ported from SAPCReceiver) ─────────────────────────────
+
+    private bool TryParseIncomingPacket(byte[] data, out float parsed, out string packetForDebug)
+    {
+        parsed         = 0f;
+        packetForDebug = "<empty>";
+
+        if (data == null || data.Length == 0)
+            return false;
+
+        string text = Encoding.UTF8.GetString(data).Trim();
+        packetForDebug = text;
+
+        // 1. Plain text float
+        if (TryParseFloatText(text, out parsed))
+            return true;
+
+        // 2. Binary float array (length multiple of 4)
+        if (data.Length % 4 == 0)
+        {
+            float  arrayVal;
+            string arrayDebug;
+            if (TryParseFloatArrayPacket(data, out arrayVal, out arrayDebug))
+            {
+                parsed         = arrayVal;
+                packetForDebug = arrayDebug;
+                return true;
+            }
+        }
+
+        // 3. Raw 4-byte float (little- or big-endian)
+        if (data.Length == 4)
+        {
+            float le = System.BitConverter.ToSingle(data, 0);
+            byte[] rev = new byte[] { data[3], data[2], data[1], data[0] };
+            float be = System.BitConverter.ToSingle(rev, 0);
+
+            bool leFinite = IsFinite(le);
+            bool beFinite = IsFinite(be);
+
+            if (leFinite && le >= 0f && le <= 1f) { parsed = le; packetForDebug = "<binary-f32-le>"; return true; }
+            if (beFinite && be >= 0f && be <= 1f) { parsed = be; packetForDebug = "<binary-f32-be>"; return true; }
+            if (leFinite) { parsed = le; packetForDebug = "<binary-f32-le>"; return true; }
+            if (beFinite) { parsed = be; packetForDebug = "<binary-f32-be>"; return true; }
+        }
+
+        packetForDebug = "<hex:" + System.BitConverter.ToString(data) + ">";
+        return false;
+    }
+
+    private bool TryParseFloatArrayPacket(byte[] data, out float parsed, out string packetForDebug)
+    {
+        parsed         = 0f;
+        packetForDebug = "<binary-f32-array-invalid>";
+
+        int count = data.Length / 4;
+        if (count <= 0) return false;
+
+        float[] values = new float[count];
+        for (int i = 0; i < count; i++)
+            values[i] = System.BitConverter.ToSingle(data, i * 4);
+
+        int index = SelectControlValueIndex(values);
+        if (index < 0) return false;
+
+        parsed         = values[index];
+        packetForDebug = $"<binary-f32-array-le count={count} idx={index} val={parsed.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)}>";
+        return true;
+    }
+
+    private int SelectControlValueIndex(float[] values)
+    {
+        if (values == null || values.Length == 0) return -1;
+
+        // Honour explicit index
+        if (floatValueIndex >= 0 && floatValueIndex < values.Length && IsFinite(values[floatValueIndex]))
+            return floatValueIndex;
+
+        float edge  = Mathf.Clamp01(autoEdgeEpsilon);
+        float lower = edge;
+        float upper = 1f - edge;
+
+        // Prefer interior normalised values (avoid edge flags)
+        for (int i = values.Length - 1; i >= 0; i--)
+            if (IsFinite(values[i]) && values[i] > lower && values[i] < upper) return i;
+
+        // Any normalised value
+        for (int i = values.Length - 1; i >= 0; i--)
+            if (IsFinite(values[i]) && values[i] >= 0f && values[i] <= 1f) return i;
+
+        // Any finite value
+        for (int i = values.Length - 1; i >= 0; i--)
+            if (IsFinite(values[i])) return i;
+
+        return -1;
+    }
+
+    private static bool TryParseFloatText(string text, out float parsed)
+    {
+        if (float.TryParse(text,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out parsed))
+            return true;
+
+        return float.TryParse(text.Replace(',', '.'),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out parsed);
+    }
+
+    private static bool IsFinite(float value) =>
+        !float.IsNaN(value) && !float.IsInfinity(value);
+
+    // ── Unity Update ──────────────────────────────────────────────────────────
+
     void Update()
     {
         EnsureGazeCamera();
+        FlushThreadData();
 
         if (devControlsEnabled) HandleArrowKeys();
+        if (gazeMoveEnabled)    HandleGazeMove();
+        if (gazePitchEnabled)   HandleGazePitch();
 
-        if (gazeMoveEnabled)  HandleGazeMove();
-        if (gazePitchEnabled) HandleGazePitch();
-
-        ApplyTransformFromState();
+        // FIX: scale first, then apply rotation + reposition
         HandleScaling();
+        ApplyTransformFromState();
+    }
+
+    /// <summary>
+    /// Safely pulls data written by the receive thread into the main thread,
+    /// then handles debug logging.
+    /// </summary>
+    private void FlushThreadData()
+    {
+        float  receivedForLog  = 0f;
+        bool   shouldLogValue  = false;
+        bool   shouldLogInvalid = false;
+        string invalidText     = "";
+
+        lock (lockObject)
+        {
+            if (_hasNewValue)
+            {
+                receivedForLog = _latestReceivedValue;
+                shouldLogValue = true;
+                _hasNewValue   = false;
+            }
+            if (_hasInvalidPacket)
+            {
+                invalidText       = _latestInvalidPacket;
+                shouldLogInvalid  = true;
+                _hasInvalidPacket = false;
+            }
+        }
+
+        if (verboseDebug && shouldLogValue)
+        {
+            if (debugLogRateHz <= 0f || Time.unscaledTime >= _nextLogTime)
+            {
+                Debug.Log($"EEG: {receivedForLog:F4}");
+                _nextLogTime = Time.unscaledTime + (debugLogRateHz > 0f ? 1f / debugLogRateHz : 0f);
+            }
+        }
+
+        if (logInvalidPackets && shouldLogInvalid)
+            Debug.LogWarning($"Beam_scale: could not parse packet '{invalidText}'");
+    }
+
+    // ── Scaling ───────────────────────────────────────────────────────────────
+
+    private void HandleScaling()
+    {
+        float rawValue;
+        lock (lockObject) { rawValue = _sapcValue; }
+
+        CurrentEEGValue = rawValue;
+
+        // Use EEG value (0-1) directly as the Y scale multiplier
+        Vector3 current = targetCapsule.localScale;
+        Vector3 targetScale = new Vector3(current.x, rawValue, current.z);
+        Vector3 newScale = Vector3.Lerp(current, targetScale, Time.deltaTime * smoothing * 2f);
+
+        targetCapsule.localScale = newScale;
     }
 
     // ── Gaze horizontal movement ──────────────────────────────────────────────
@@ -195,7 +409,6 @@ public class Beam_scale : MonoBehaviour
             ? gazeCamera.pixelRect
             : new Rect(0f, 0f, Screen.width, Screen.height);
 
-        // Normalise X to -1 ... +1 (left edge = -1, right edge = +1)
         float normX = Mathf.InverseLerp(pixelRect.xMin, pixelRect.xMax, gazePoint.Screen.x) * 2f - 1f;
         if (invertGazeX) normX = -normX;
 
@@ -204,7 +417,13 @@ public class Beam_scale : MonoBehaviour
         if (_devMode == DevMode.Rotate)
         {
             float delta = velocity * rotationSpeed * Time.deltaTime;
-            _currentAngle = Mathf.Clamp(_currentAngle + delta, -180f, 180f);
+            float newAngle = _currentAngle + delta;
+            
+            // Check if rotation is allowed (top object stays at or above y=2)
+            if (CanRotateZ(newAngle))
+            {
+                _currentAngle = Mathf.Clamp(newAngle, -180f, 180f);
+            }
         }
         else
         {
@@ -213,19 +432,12 @@ public class Beam_scale : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Remaps a –1…+1 value so the centre band [–deadZone, +deadZone] returns 0,
-    /// and the outer range scales smoothly to –1…+1 at the edges.
-    /// </summary>
     private static float ApplyDeadZone(float value, float deadZone)
     {
         if (deadZone <= 0f) return value;
-
         float abs = Mathf.Abs(value);
         if (abs <= deadZone) return 0f;
-
-        float rescaled = (abs - deadZone) / (1f - deadZone);
-        return Mathf.Sign(value) * rescaled;
+        return Mathf.Sign(value) * (abs - deadZone) / (1f - deadZone);
     }
 
     // ── Gaze pitch ────────────────────────────────────────────────────────────
@@ -246,20 +458,18 @@ public class Beam_scale : MonoBehaviour
     {
         if (targetCapsule == null) return;
 
-        // Build final rotation: manual rotation on Z-axis, gaze pitch on X-axis
         Quaternion manualRotation = Quaternion.AngleAxis(_currentAngle, Vector3.forward);
-        
+
         if (gazePitchEnabled)
         {
             Quaternion gazeRotation = Quaternion.AngleAxis(_currentGazePitch, Vector3.right);
-            targetCapsule.rotation = manualRotation * gazeRotation;
+            targetCapsule.rotation  = manualRotation * gazeRotation;
         }
         else
         {
             targetCapsule.rotation = manualRotation;
         }
-        
-        // Reposition to maintain base position
+
         RepositionToBase();
     }
 
@@ -293,7 +503,6 @@ public class Beam_scale : MonoBehaviour
     private void HandleArrowKeys()
     {
         if (Keyboard.current == null) return;
-
         if (Keyboard.current.digit1Key.wasPressedThisFrame) SetMode(DevMode.Rotate);
         if (Keyboard.current.digit2Key.wasPressedThisFrame) SetMode(DevMode.Move);
 
@@ -304,36 +513,19 @@ public class Beam_scale : MonoBehaviour
 
         if (_devMode == DevMode.Rotate)
         {
-            float delta = input * rotationSpeed * Time.deltaTime;
-
-            // Clamp to ±180° limit
-            float newAngle = Mathf.Clamp(_currentAngle + delta, -180f, 180f);
-            float clampedDelta = newAngle - _currentAngle;
-
-            if (Mathf.Abs(clampedDelta) > 0.0001f)
+            float deltaAngle = input * rotationSpeed * Time.deltaTime;
+            float newAngle = _currentAngle + deltaAngle;
+            
+            // Check if rotation is allowed (top object stays at or above y=2)
+            if (CanRotateZ(newAngle))
             {
-                _currentAngle = newAngle;
+                _currentAngle = Mathf.Clamp(newAngle, -180f, 180f);
             }
         }
         else
         {
             _baseWorldPos += Vector3.right * input * moveSpeed * Time.deltaTime;
         }
-    }
-
-    // ── Scaling ───────────────────────────────────────────────────────────────
-
-    private void HandleScaling()
-    {
-        float rawValue;
-        lock (lockObject) { rawValue = receivedValue; }
-
-        float targetY   = Mathf.Lerp(minScale, maxScale, rawValue);
-        Vector3 current = targetCapsule.localScale;
-        float newY      = Mathf.Lerp(current.y, targetY, Time.deltaTime * smoothing);
-
-        targetCapsule.localScale = new Vector3(current.x, newY, current.z);
-        targetCapsule.position   = _baseWorldPos + targetCapsule.up * (newY / 2f);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -347,19 +539,41 @@ public class Beam_scale : MonoBehaviour
     private Vector3 GetBaseWorldPos() =>
         targetCapsule.position - targetCapsule.up * targetCapsule.localScale.y;
 
-    private void RepositionToBase() =>
+    private void RepositionToBase()
+    {
         targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+    }
 
-    private bool CanRotate(float rotationDelta)
+    /// <summary>
+    /// Check if rotating to the given angle would keep the top object at or above y=2.
+    /// Pitch rotation is allowed freely (not constrained by this check).
+    /// </summary>
+    private bool CanRotateZ(float targetAngle)
     {
         if (topObject == null) return true;
 
-        // Test rotation by checking if topObject would go below ground
-        float testAngle = _currentAngle + rotationDelta;
-        Quaternion testRotation = Quaternion.AngleAxis(testAngle, Vector3.forward);
-        Vector3 testPos = _baseWorldPos + testRotation * (targetCapsule.position - _baseWorldPos);
+        // Simulate the Z-axis rotation
+        Quaternion testZRotation = Quaternion.AngleAxis(targetAngle, Vector3.forward);
         
-        return topObject.position.y >= 0.01f;
+        // Apply both Z (manual) and X (gaze pitch) rotations
+        Quaternion testRotation = gazePitchEnabled
+            ? testZRotation * Quaternion.AngleAxis(_currentGazePitch, Vector3.right)
+            : testZRotation;
+
+        // Temporarily apply the test rotation
+        Quaternion originalRotation = targetCapsule.rotation;
+        targetCapsule.rotation = testRotation;
+        targetCapsule.position = _baseWorldPos + targetCapsule.up * (targetCapsule.localScale.y / 2f);
+        
+        // Check the top object's Y position
+        float topY = topObject.position.y;
+        
+        // Restore original transform
+        targetCapsule.rotation = originalRotation;
+        RepositionToBase();
+        
+        // Allow rotation only if top object stays at or above y=2
+        return topY >= 2f;
     }
 
     void OnDrawGizmosSelected()
@@ -375,7 +589,7 @@ public class Beam_scale : MonoBehaviour
     private void Cleanup()
     {
         isRunning = false;
-        if (client != null) { client.Close(); client = null; }
+        if (client != null)        { try { client.Close(); } catch { } client = null; }
         if (receiveThread != null && receiveThread.IsAlive) { receiveThread.Join(1000); receiveThread = null; }
     }
 }
