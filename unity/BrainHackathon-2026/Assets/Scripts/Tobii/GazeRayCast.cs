@@ -7,8 +7,8 @@ public class GazeRayCast : MonoBehaviour
     [Tooltip("How far into the 3D world the eye-tracking ray should reach.")]
     public float maxDistance = 100f;
     
-    // Optional: Use a LayerMask to only hit specific objects (like "Interactables")
-    // public LayerMask interactableLayers; 
+    // We store the object we are currently looking at here
+    private IGazeInteractable currentInteractable; 
 
     void Update()
     {
@@ -23,22 +23,41 @@ public class GazeRayCast : MonoBehaviour
             RaycastHit hit;
 
             // 4. Perform the raycast
-            // If it hits something within maxDistance, Physics.Raycast returns true
             if (Physics.Raycast(gazeRay, out hit, maxDistance))
             {
-                // 5. Log the name of the 3D object we just hit!
-                Debug.Log($"Eye tracking hit: {hit.collider.gameObject.name}");
+                // Try to get the interface from the object we hit
+                IGazeInteractable hitInteractable = hit.collider.GetComponent<IGazeInteractable>();
+
+                // Did we just look at a BRAND NEW interactable?
+                if (hitInteractable != currentInteractable)
+                {
+                    // Tell the old object we looked away
+                    currentInteractable?.OnLookExit(); 
+                    
+                    // Update our tracker to the new object
+                    currentInteractable = hitInteractable; 
+                    
+                    // Tell the new object we just looked at it
+                    currentInteractable?.OnLookEnter(); 
+                }
+
+                // Tell the current object we are still looking at it
+                currentInteractable?.OnLookStay();
                 
-                hit.collider.GetComponent<IGazeInteractable>();;
-                
-                // Optional: Draw a debug line in the Scene view to visualize the raycast
-                Debug.DrawLine(gazeRay.origin, hit.point, Color.green);
+                // We successfully looked at an object, so we exit the Update method here!
+                return; 
             }
-            else
-            {
-                // Draw a red line if we are looking at empty space
-                Debug.DrawRay(gazeRay.origin, gazeRay.direction * maxDistance, Color.red);
-            }
+        }
+
+        // 5. THE CLEAR-OUT LOGIC
+        // If the code reaches this point, it means one of two things happened:
+        //   A) The raycast hit empty space
+        //   B) gazePoint.IsValid was false (you blinked or looked away from the screen)
+        // In either case, if we WERE looking at an object, we need to turn it off.
+        if (currentInteractable != null)
+        {
+            currentInteractable.OnLookExit();
+            currentInteractable = null; // Clear the tracker
         }
     }
 }

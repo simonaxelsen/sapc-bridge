@@ -9,21 +9,22 @@ public class LampInteractable : MonoBehaviour, IGazeInteractable
     [Tooltip("How fast the light ramps up and down.")]
     public float fadeSpeed = 8f;
 
+    [Header("UDC/Network Control")]
+    [Tooltip("Drag the GameObject holding the SAPCReceiver script here.")]
+    public SAPCReceiver networkReceiver;
+
     // The colors we are blending between
     private Color offColor;
-    private Color onColor = Color.white; // Color.white is full 1,1,1,1
+    private Color onColor = Color.white; 
     
     private bool isBeingLookedAt = false;
 
     void Start()
     {
-        // 1. Convert your hex code B2B2B2 into a Unity Color format
         ColorUtility.TryParseHtmlString("#B2B2B2", out offColor);
         
-        // 2. Make sure we actually assigned the sprite renderer in the Inspector
         if (childSprite != null)
         {
-            // 3. Force it to start exactly at the B2B2B2 off state
             childSprite.color = offColor;
         }
         else
@@ -34,31 +35,39 @@ public class LampInteractable : MonoBehaviour, IGazeInteractable
 
     public void OnLookEnter()
     {
-        // Tell the script we are looking at it so the Update loop can start ramping to White
         isBeingLookedAt = true;
     }
 
-    public void OnLookStay()
-    {
-        // We leave this blank! The ramping needs to happen in Update() 
-        // so it has access to Time.deltaTime for a smooth fade.
-    }
+    public void OnLookStay() { }
 
     public void OnLookExit()
     {
-        // Tell the script we looked away so the Update loop starts ramping to B2B2B2
         isBeingLookedAt = false;
     }
 
     void Update()
     {
-        // Safety check to prevent errors
         if (childSprite == null) return;
 
-        // Figure out which color we are trying to transition to based on where the mouse is
-        Color targetColor = isBeingLookedAt ? onColor : offColor;
+        // 1. We start by assuming the lamp should be OFF
+        Color targetColor = offColor;
 
-        // Color.Lerp smoothly blends the current color towards the target color over time
+        // 2. ONLY override the target color if the lamp is turned ON (being looked at)
+        if (isBeingLookedAt)
+        {
+            // Check if the receiver exists AND is actually turned on/active in the scene!
+            if (networkReceiver != null && networkReceiver.isActiveAndEnabled)
+            {
+                targetColor = Color.Lerp(offColor, onColor, networkReceiver.CurrentValue);
+            }
+            else
+            {
+                // Safety fallback: If it's unassigned OR disabled, just act like a normal lamp
+                targetColor = onColor;
+            }
+        }
+
+        // 3. Smoothly blend the current color towards our calculated target color
         childSprite.color = Color.Lerp(childSprite.color, targetColor, Time.deltaTime * fadeSpeed);
     }
 }

@@ -365,13 +365,28 @@ MonoBehaviour:
   minLookTime: 2
   maxLookTime: 3
   effectMode: 2
-  fireworksPrefab: {fileID: 8500920156052182585, guid: 830e92a3f95c4b04caf8edd648aed9bd, type: 3}
-  butterflyPrefab: {fileID: 138252, guid: be999fe03c257ec4cb0a3a4b5ca72217, type: 3}
+  fireworksPrefabs: []
+  butterflyPrefabs: []
+  extraEffectPrefabs: []
+  destroyBurst: {fileID: 0}
+  instantBurstCount: 3
+  overTimeSpawnCount: 10
+  spawnDuration: 2.5
+  spawnRadius: 1.2
+  upwardOffset: 0.5
+  randomHeight: 1.5
+  randomRotation: 1
+  randomScale: 1
+  minScale: 0.7
+  maxScale: 1.4
   hideOriginalObject: 1
+  destroyOriginalAfterEffects: 0
   spawnedEffectLifetime: 6
   targetRenderer: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   lookedAtColor: {r: 0, g: 1, b: 1, a: 1}
+  fireworksPrefab: {fileID: 8500920156052182585, guid: 830e92a3f95c4b04caf8edd648aed9bd, type: 3}
+  butterflyPrefab: {fileID: 138252, guid: be999fe03c257ec4cb0a3a4b5ca72217, type: 3}
 --- !u!114 &121325418
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -392,6 +407,7 @@ MonoBehaviour:
   upwardModifier: 0.4
   destroyOriginal: 1
   destroyPiecesAfter: 8
+  destroyBurst: {fileID: 0}
   targetRenderer: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   lookedAtColor: {r: 1, g: 0, b: 0, a: 1}
@@ -409,6 +425,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   childSprite: {fileID: 1237226545}
   fadeSpeed: 8
+  networkReceiver: {fileID: 984459672}
 --- !u!1001 &150457351
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -598,13 +615,28 @@ MonoBehaviour:
   minLookTime: 2
   maxLookTime: 3
   effectMode: 2
-  fireworksPrefab: {fileID: 8500920156052182585, guid: 830e92a3f95c4b04caf8edd648aed9bd, type: 3}
-  butterflyPrefab: {fileID: 138252, guid: be999fe03c257ec4cb0a3a4b5ca72217, type: 3}
+  fireworksPrefabs: []
+  butterflyPrefabs: []
+  extraEffectPrefabs: []
+  destroyBurst: {fileID: 0}
+  instantBurstCount: 3
+  overTimeSpawnCount: 10
+  spawnDuration: 2.5
+  spawnRadius: 1.2
+  upwardOffset: 0.5
+  randomHeight: 1.5
+  randomRotation: 1
+  randomScale: 1
+  minScale: 0.7
+  maxScale: 1.4
   hideOriginalObject: 1
+  destroyOriginalAfterEffects: 0
   spawnedEffectLifetime: 6
   targetRenderer: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   lookedAtColor: {r: 0, g: 1, b: 1, a: 1}
+  fireworksPrefab: {fileID: 8500920156052182585, guid: 830e92a3f95c4b04caf8edd648aed9bd, type: 3}
+  butterflyPrefab: {fileID: 138252, guid: be999fe03c257ec4cb0a3a4b5ca72217, type: 3}
 --- !u!114 &219534217
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -625,6 +657,7 @@ MonoBehaviour:
   upwardModifier: 0.4
   destroyOriginal: 1
   destroyPiecesAfter: 8
+  destroyBurst: {fileID: 0}
   targetRenderer: {fileID: 0}
   normalColor: {r: 1, g: 1, b: 1, a: 1}
   lookedAtColor: {r: 1, g: 0, b: 0, a: 1}
@@ -640,6 +673,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8f7e393e91e49894295cf61255a64d0f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FanInteractable
+  networkReceiver: {fileID: 984459672}
+  maxSpeed: 1
+  speedSmoothing: 5
 --- !u!95 &219534219
 Animator:
   serializedVersion: 7
@@ -1192,6 +1228,56 @@ Transform:
   - {fileID: 1181323111}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &984459671
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 984459673}
+  - component: {fileID: 984459672}
+  m_Layer: 0
+  m_Name: SAPCRReceiver
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &984459672
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 984459671}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58f93154c16267a4b9d02a015dea032b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SAPCReceiver
+  port: 1000
+  verboseDebug: 1
+  debugLogRateHz: 10
+  logInvalidPackets: 1
+  floatValueIndex: -1
+  autoEdgeEpsilon: 0.01
+--- !u!4 &984459673
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 984459671}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 193.79022, y: 0, z: 800.78094}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1068371252
 GameObject:
   m_ObjectHideFlags: 0
@@ -1240,11 +1326,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7eb6f4590f09915478ae9901cfdcb9ae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeamTipCollision
-  tipRadius: 0.3
-  meteorLayer:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  debugLogName: MeteorHit
 --- !u!114 &1068371255
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1265,6 +1346,18 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
+  gazeMoveEnabled: 1
+  gazeMoveSpeed: 4
+  gazeMoveDeadZone: 0.15
+  gazeMoveMinX: -5
+  gazeMoveMaxX: 5
+  invertGazeX: 0
+  gazePitchEnabled: 1
+  gazeCamera: {fileID: 0}
+  minGazePitch: -35
+  maxGazePitch: 35
+  gazePitchSmoothing: 10
+  invertGazeY: 0
   rotateModeButton: {fileID: 0}
   moveModeButton: {fileID: 0}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
@@ -1721,6 +1814,18 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
+  gazeMoveEnabled: 1
+  gazeMoveSpeed: 4
+  gazeMoveDeadZone: 0.15
+  gazeMoveMinX: -5
+  gazeMoveMaxX: 5
+  invertGazeX: 0
+  gazePitchEnabled: 1
+  gazeCamera: {fileID: 0}
+  minGazePitch: -35
+  maxGazePitch: 35
+  gazePitchSmoothing: 10
+  invertGazeY: 0
   rotateModeButton: {fileID: 0}
   moveModeButton: {fileID: 0}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
@@ -2078,3 +2183,4 @@ SceneRoots:
   - {fileID: 2111699077}
   - {fileID: 150457351}
   - {fileID: 486468855}
+  - {fileID: 984459673}
