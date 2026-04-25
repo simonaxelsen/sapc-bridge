@@ -242,6 +242,37 @@ public class Beam_scale : MonoBehaviour
         return topY >= 0.01f;
     }
 
+    // ── Gaze control ──────────────────────────────────────────────────────────
+    private float _currentGazePitch = 0f;
+
+    private void HandleGazePitch()
+    {
+        if (gazeCamera == null)
+            gazeCamera = Camera.main;
+
+        var gazePoint = TobiiAPI.GetGazePoint();
+        if (!gazePoint.IsValid) return;
+
+        // Normalize screen position to -1 to 1 range
+        Vector3 screenPos = gazePoint.Screen;
+        float normalizedY = (screenPos.y / gazeCamera.pixelHeight) * 2f - 1f;
+        if (invertGazeY) normalizedY = -normalizedY;
+
+        // Map to pitch angle
+        float targetPitch = Mathf.Lerp(minGazePitch, maxGazePitch, (normalizedY + 1f) / 2f);
+        _currentGazePitch = Mathf.Lerp(_currentGazePitch, targetPitch, Time.deltaTime * gazePitchSmoothing);
+    }
+
+    private void ApplyTransformFromState()
+    {
+        if (gazePitchEnabled && targetCapsule != null)
+        {
+            // Apply pitch rotation around X-axis relative to the base
+            Quaternion pitchRotation = Quaternion.AngleAxis(_currentGazePitch, Vector3.right);
+            targetCapsule.rotation = pitchRotation * targetCapsule.rotation;
+        }
+    }
+
     void OnDrawGizmosSelected()
     {
         if (targetCapsule == null) return;
