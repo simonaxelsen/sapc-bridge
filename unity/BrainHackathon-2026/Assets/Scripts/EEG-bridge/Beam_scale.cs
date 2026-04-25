@@ -417,7 +417,13 @@ public class Beam_scale : MonoBehaviour
         if (_devMode == DevMode.Rotate)
         {
             float delta = velocity * rotationSpeed * Time.deltaTime;
-            _currentAngle = Mathf.Clamp(_currentAngle + delta, -180f, 180f);
+            float newAngle = _currentAngle + delta;
+            
+            // Check if rotation is allowed (top object stays at or above y=2)
+            if (CanRotateZ(newAngle))
+            {
+                _currentAngle = Mathf.Clamp(newAngle, -180f, 180f);
+            }
         }
         else
         {
@@ -498,6 +504,9 @@ public class Beam_scale : MonoBehaviour
     {
         if (Keyboard.current == null) return;
 
+    private void HandleArrowKeys()
+    {
+        if (Keyboard.current == null) return;
         if (Keyboard.current.digit1Key.wasPressedThisFrame) SetMode(DevMode.Rotate);
         if (Keyboard.current.digit2Key.wasPressedThisFrame) SetMode(DevMode.Move);
 
@@ -508,8 +517,14 @@ public class Beam_scale : MonoBehaviour
 
         if (_devMode == DevMode.Rotate)
         {
-            float newAngle = Mathf.Clamp(_currentAngle + input * rotationSpeed * Time.deltaTime, -180f, 180f);
-            _currentAngle  = newAngle;
+            float deltaAngle = input * rotationSpeed * Time.deltaTime;
+            float newAngle = _currentAngle + deltaAngle;
+            
+            // Check if rotation is allowed (top object stays at or above y=2)
+            if (CanRotateZ(newAngle))
+            {
+                _currentAngle = Mathf.Clamp(newAngle, -180f, 180f);
+            }
         }
         else
         {
@@ -530,6 +545,38 @@ public class Beam_scale : MonoBehaviour
 
     private void RepositionToBase() =>
         targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+
+    /// <summary>
+    /// Check if rotating to the given angle would keep the top object at or above y=2.
+    /// Pitch rotation is allowed freely (not constrained by this check).
+    /// </summary>
+    private bool CanRotateZ(float targetAngle)
+    {
+        if (topObject == null) return true;
+
+        // Simulate the Z-axis rotation
+        Quaternion testZRotation = Quaternion.AngleAxis(targetAngle, Vector3.forward);
+        
+        // Apply both Z (manual) and X (gaze pitch) rotations
+        Quaternion testRotation = gazePitchEnabled
+            ? testZRotation * Quaternion.AngleAxis(_currentGazePitch, Vector3.right)
+            : testZRotation;
+
+        // Temporarily apply the test rotation
+        Quaternion originalRotation = targetCapsule.rotation;
+        targetCapsule.rotation = testRotation;
+        targetCapsule.position = _baseWorldPos + targetCapsule.up * (targetCapsule.localScale.y / 2f);
+        
+        // Check the top object's Y position
+        float topY = topObject.position.y;
+        
+        // Restore original transform
+        targetCapsule.rotation = originalRotation;
+        RepositionToBase();
+        
+        // Allow rotation only if top object stays at or above y=2
+        return topY >= 2f;
+    }
 
     void OnDrawGizmosSelected()
     {
