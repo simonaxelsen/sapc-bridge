@@ -240,79 +240,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 72748611}
   m_CullTransparentMesh: 1
---- !u!1001 &267301109
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1168718348378501996, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3867598892836515628, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_Name
-      value: Eyetracking_M
-      objectReference: {fileID: 0}
-    - target: {fileID: 4966919103037187227, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6863608820646607519, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: mainDotSprite
-      value: 
-      objectReference: {fileID: 21300000, guid: adfe398c406943149854563ded9405da, type: 3}
-    - target: {fileID: 7648297503860591852, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -5.28375
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -5.38065
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8540509754683546901, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 10ac2f298289edd4199c39fbc828e8de, type: 3}
 --- !u!1001 &282641977
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1054,7 +981,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -1254,19 +1181,13 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
-  gazePitchEnabled: 0
-  gazeYawEnabled: 1
+  gazePitchEnabled: 1
   gazeCamera: {fileID: 0}
   minGazePitch: -35
   maxGazePitch: 35
-  minGazeYaw: -22
-  maxGazeYaw: 22
   gazePitchSensitivity: 1.6
-  gazeYawSensitivity: 1.8
   gazePitchSmoothing: 16
-  gazeYawSmoothing: 24
   invertGazeY: 0
-  invertGazeX: 1
   rotateModeButton: {fileID: 0}
   moveModeButton: {fileID: 0}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
@@ -2624,7 +2545,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6646386282554718827}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41d396856847afb4c93bf57645b9a57d, type: 3}
   m_Name: 
@@ -2637,19 +2558,13 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
-  gazePitchEnabled: 0
-  gazeYawEnabled: 1
+  gazePitchEnabled: 1
   gazeCamera: {fileID: 0}
   minGazePitch: -35
   maxGazePitch: 35
-  minGazeYaw: -22
-  maxGazeYaw: 22
   gazePitchSensitivity: 1.6
-  gazeYawSensitivity: 1.8
   gazePitchSmoothing: 16
-  gazeYawSmoothing: 24
   invertGazeY: 0
-  invertGazeX: 1
   rotateModeButton: {fileID: 1610090926}
   moveModeButton: {fileID: 72748613}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
@@ -2694,4 +2609,3 @@ SceneRoots:
   - {fileID: 1445489263}
   - {fileID: 282641977}
   - {fileID: 1782064508}
-  - {fileID: 267301109}

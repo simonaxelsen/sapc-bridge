@@ -155,6 +155,19 @@ MonoBehaviour:
   devControlsEnabled: 1
   rotationSpeed: 90
   moveSpeed: 3
+  gazePitchEnabled: 0
+  gazeYawEnabled: 1
+  gazeCamera: {fileID: 0}
+  minGazePitch: -35
+  maxGazePitch: 35
+  minGazeYaw: -22
+  maxGazeYaw: 22
+  gazePitchSensitivity: 1.6
+  gazeYawSensitivity: 1.8
+  gazePitchSmoothing: 16
+  gazeYawSmoothing: 24
+  invertGazeY: 0
+  invertGazeX: 1
   rotateModeButton: {fileID: 0}
   moveModeButton: {fileID: 0}
   activeColor: {r: 0.2, g: 0.6, b: 1, a: 1}
