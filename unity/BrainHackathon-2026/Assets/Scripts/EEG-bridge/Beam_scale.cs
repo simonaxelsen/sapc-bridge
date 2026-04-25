@@ -1,14 +1,11 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
 
 public class Beam_scale : MonoBehaviour
 {
-    [Header("Network")]
-    public int port = 1000;
+    [Header("EEG Input")]
+    [Tooltip("Reference to the SAPCReceiver that provides EEG values")]
+    public SAPCReceiver sapcReceiver;
 
     [Header("Capsule Control")]
     [Tooltip("The 3D capsule to scale (leave empty to use this GameObject)")]
@@ -30,77 +27,28 @@ public class Beam_scale : MonoBehaviour
     [Tooltip("Degrees per second when holding an arrow key")]
     public float rotationSpeed = 90f;
 
-    [Header("Debug")]
-    [Tooltip("Print received values to console")]
-    public bool verboseDebug = true;
-
-    private Thread receiveThread;
-    private UdpClient client;
-    private float receivedValue = 0f;
-    private readonly object lockObject = new object();
-    private volatile bool isRunning = false;
-
     // World-space position of the base (bottom tip) — stays fixed as Y scales
     private Vector3 _baseWorldPos;
 
     void Start()
     {
-        isRunning = true;
-
         if (targetCapsule == null)
             targetCapsule = transform;
 
         // Snapshot the base anchor in world space
         _baseWorldPos = GetBaseWorldPos();
 
-        try
-        {
-            client = new UdpClient(port);
-            client.Client.ReceiveTimeout = 500;
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Beam_scale: Could not open UDP port {port} — {e.Message}");
-            return;
-        }
+        // Auto-find SAPCReceiver if not assigned
+        if (sapcReceiver == null)
+            sapcReceiver = GetComponent<SAPCReceiver>();
 
-        receiveThread = new Thread(new ThreadStart(ReceiveData));
-        receiveThread.IsBackground = true;
-        receiveThread.Start();
-
-        Debug.Log($"Beam_scale: Listening on UDP:{port}");
+        if (sapcReceiver == null)
+            Debug.LogWarning("Beam_scale: No SAPCReceiver assigned and none found on this GameObject!");
+        else
+            Debug.Log("Beam_scale: Connected to SAPCReceiver");
     }
 
-    private void ReceiveData()
-    {
-        while (isRunning)
-        {
-            try
-            {
-                IPEndPoint anyIP = new IPEndPoint(IPAddress.Any, 0);
-                byte[] data = client.Receive(ref anyIP);
-                string text = Encoding.UTF8.GetString(data);
 
-                float parsed;
-                bool ok = float.TryParse(text, System.Globalization.NumberStyles.Float,
-                                         System.Globalization.CultureInfo.InvariantCulture, out parsed);
-
-                if (ok && !float.IsNaN(parsed) && parsed >= 0f && parsed <= 1f)
-                {
-                    lock (lockObject) { receivedValue = parsed; }
-
-                    if (verboseDebug)
-                        Debug.Log($"EEG: {parsed:F4}");
-                }
-            }
-            catch (SocketException) { }
-            catch (System.ObjectDisposedException) { break; }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"Beam_scale: {e.Message}");
-            }
-        }
-    }
 
     void Update()
     {
@@ -129,8 +77,7 @@ public class Beam_scale : MonoBehaviour
     // ── Y-only scaling anchored to the base ──────────────────────────────────
     private void HandleScaling()
     {
-        float rawValue;
-        lock (lockObject) { rawValue = receivedValue; }
+        float rawValue = (sapcReceiver != null) ? sapcReceiver.CurrentValue : 0.5f;
 
         float targetY = Mathf.Lerp(minScale, maxScale, rawValue);
         Vector3 current = targetCapsule.localScale;
@@ -164,13 +111,5 @@ public class Beam_scale : MonoBehaviour
         Gizmos.DrawWireSphere(GetBaseWorldPos(), 0.1f);
     }
 
-    void OnApplicationQuit() => Cleanup();
-    void OnDisable()         => Cleanup();
 
-    private void Cleanup()
-    {
-        isRunning = false;
-        if (client != null)       { client.Close(); client = null; }
-        if (receiveThread != null && receiveThread.IsAlive) { receiveThread.Join(1000); receiveThread = null; }
-    }
 }
