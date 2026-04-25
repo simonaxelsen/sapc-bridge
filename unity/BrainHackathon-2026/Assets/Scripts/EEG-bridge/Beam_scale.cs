@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using Tobii.Gaming;
 
 public class Beam_scale : MonoBehaviour
 {
@@ -34,6 +35,25 @@ public class Beam_scale : MonoBehaviour
     [Tooltip("Units per second when moving")]
     public float moveSpeed = 3f;
 
+    [Header("Eye Interaction")]
+    [Tooltip("Use Tobii gaze position to control the beam pitch around the X-axis.")]
+    public bool gazePitchEnabled = true;
+
+    [Tooltip("Camera used to normalize screen gaze position. Defaults to Camera.main when empty.")]
+    public Camera gazeCamera;
+
+    [Tooltip("Pitch angle when looking at the bottom of the screen.")]
+    public float minGazePitch = -35f;
+
+    [Tooltip("Pitch angle when looking at the top of the screen.")]
+    public float maxGazePitch = 35f;
+
+    [Tooltip("How quickly the beam pitch follows gaze.")]
+    public float gazePitchSmoothing = 10f;
+
+    [Tooltip("Invert vertical gaze mapping if the pitch feels backwards.")]
+    public bool invertGazeY = false;
+
     [Header("Dev UI Buttons")]
     [Tooltip("Button that activates Rotate mode")]
     public Button rotateModeButton;
@@ -60,6 +80,9 @@ public class Beam_scale : MonoBehaviour
     private volatile bool   isRunning  = false;
 
     private Vector3 _baseWorldPos;
+    private Quaternion _baseRotation;
+    private float _zRotationDegrees;
+    private float _currentGazePitch;
 
     void Start()
     {
@@ -69,6 +92,17 @@ public class Beam_scale : MonoBehaviour
             targetCapsule = transform;
 
         _baseWorldPos = GetBaseWorldPos();
+        _baseRotation = targetCapsule.rotation;
+
+        if (gazePitchEnabled)
+        {
+            TobiiAPI.SubscribeGazePointData();
+        }
+
+        if (gazeCamera == null)
+        {
+            gazeCamera = Camera.main;
+        }
 
         // Wire up buttons
         if (rotateModeButton != null) rotateModeButton.onClick.AddListener(() => SetMode(DevMode.Rotate));
@@ -123,6 +157,8 @@ public class Beam_scale : MonoBehaviour
     void Update()
     {
         if (devControlsEnabled) HandleArrowKeys();
+        if (gazePitchEnabled) HandleGazePitch();
+        ApplyTransformFromState();
         HandleScaling();
     }
 
@@ -164,15 +200,43 @@ public class Beam_scale : MonoBehaviour
 
         if (_devMode == DevMode.Rotate)
         {
-            targetCapsule.RotateAround(_baseWorldPos, Vector3.forward,
-                                       input * rotationSpeed * Time.deltaTime);
-            RepositionToBase();
+            _zRotationDegrees += input * rotationSpeed * Time.deltaTime;
         }
         else
         {
             _baseWorldPos += Vector3.right * input * moveSpeed * Time.deltaTime;
-            RepositionToBase();
         }
+    }
+
+    private void HandleGazePitch()
+    {
+        if (gazeCamera == null)
+        {
+            gazeCamera = Camera.main;
+            if (gazeCamera == null)
+                return;
+        }
+
+        GazePoint gazePoint = TobiiAPI.GetGazePoint();
+        if (!gazePoint.IsValid)
+            return;
+
+        Rect pixelRect = gazeCamera.pixelRect;
+        float normalizedY = Mathf.Clamp01(
+            Mathf.InverseLerp(pixelRect.yMin, pixelRect.yMax, gazePoint.Screen.y));
+        if (invertGazeY)
+            normalizedY = 1f - normalizedY;
+
+        float targetPitch = Mathf.Lerp(minGazePitch, maxGazePitch, normalizedY);
+        _currentGazePitch = Mathf.LerpAngle(_currentGazePitch, targetPitch, Time.deltaTime * gazePitchSmoothing);
+    }
+
+    private void ApplyTransformFromState()
+    {
+        Quaternion zRotation = Quaternion.AngleAxis(_zRotationDegrees, Vector3.forward);
+        Quaternion localPitch = Quaternion.AngleAxis(_currentGazePitch, Vector3.right);
+        targetCapsule.rotation = zRotation * _baseRotation * localPitch;
+        RepositionToBase();
     }
 
     // ── Y-only scaling anchored to the base ──────────────────────────────────
