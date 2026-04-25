@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using Tobii.Gaming;
 
 public class Beam_scale : MonoBehaviour
 {
@@ -33,6 +34,25 @@ public class Beam_scale : MonoBehaviour
 
     [Tooltip("Units per second when moving")]
     public float moveSpeed = 3f;
+
+    [Header("Eye Interaction")]
+    [Tooltip("Use Tobii gaze position to control the beam pitch around the X-axis.")]
+    public bool gazePitchEnabled = true;
+
+    [Tooltip("Camera used to normalize screen gaze position. Defaults to Camera.main when empty.")]
+    public Camera gazeCamera;
+
+    [Tooltip("Pitch angle when looking at the bottom of the screen.")]
+    public float minGazePitch = -35f;
+
+    [Tooltip("Pitch angle when looking at the top of the screen.")]
+    public float maxGazePitch = 35f;
+
+    [Tooltip("How quickly the beam pitch follows gaze.")]
+    public float gazePitchSmoothing = 10f;
+
+    [Tooltip("Invert vertical gaze mapping if the pitch feels backwards.")]
+    public bool invertGazeY = false;
 
     [Header("Dev UI Buttons")]
     [Tooltip("Button that activates Rotate mode")]
@@ -125,6 +145,8 @@ public class Beam_scale : MonoBehaviour
     void Update()
     {
         if (devControlsEnabled) HandleArrowKeys();
+        if (gazePitchEnabled) HandleGazePitch();
+        ApplyTransformFromState();
         HandleScaling();
     }
 
@@ -176,7 +198,6 @@ public class Beam_scale : MonoBehaviour
         else
         {
             _baseWorldPos += Vector3.right * input * moveSpeed * Time.deltaTime;
-            RepositionToBase();
         }
     }
 
