@@ -29,7 +29,7 @@ public class GazeRayCast : MonoBehaviour
                 // 5. Log the name of the 3D object we just hit!
                 Debug.Log($"Eye tracking hit: {hit.collider.gameObject.name}");
                 
-                hit.collider.GetComponent<MyInteractable>()?.OnLook();
+                hit.collider.GetComponent<IGazeInteractable>();;
                 
                 // Optional: Draw a debug line in the Scene view to visualize the raycast
                 Debug.DrawLine(gazeRay.origin, hit.point, Color.green);

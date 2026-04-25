@@ -20,6 +20,10 @@ public class GazeBreakable : MonoBehaviour
     public bool destroyOriginal = true;
     public float destroyPiecesAfter = 8f;
 
+    [Header("Optional GPU Burst")]
+    [Tooltip("Optional compute-shader burst that plays when this object breaks.")]
+    public GpuPrefabBurstSpawner destroyBurst;
+
     [Header("Optional Visual Feedback")]
     public Renderer targetRenderer;
     public Color normalColor = Color.white;
@@ -36,6 +40,9 @@ public class GazeBreakable : MonoBehaviour
 
         if (targetRenderer == null)
             targetRenderer = GetComponentInChildren<Renderer>();
+
+        if (destroyBurst == null)
+            destroyBurst = GetComponent<GpuPrefabBurstSpawner>();
 
         if (targetRenderer != null)
             targetRenderer.material.color = normalColor;
@@ -83,6 +90,11 @@ public class GazeBreakable : MonoBehaviour
             return;
 
         hasBroken = true;
+
+        if (destroyBurst != null)
+        {
+            destroyBurst.Play(transform.position, transform.rotation);
+        }
 
         if (brokenPrefab != null)
         {
