@@ -39,18 +39,10 @@ public class SAPCReceiver : MonoBehaviour
     [Tooltip("Auto mode: treat values near 0/1 as edge flags and prefer values inside this margin.")]
     public float autoEdgeEpsilon = 0.01f;
 
-    [Header("Sphere scaling")]
-    [Tooltip("Object to scale. If null, this GameObject is scaled.")]
-    public Transform targetTransform;
-
-    [Tooltip("Minimum sphere scale when control value is 0.0")]
-    public float minScale = 0.5f;
-
-    [Tooltip("Maximum sphere scale when control value is 1.0")]
-    public float maxScale = 3.0f;
-
-    [Tooltip("Visual smoothing speed. Higher = more reactive, lower = smoother.")]
-    public float smoothingSpeed = 8.0f;
+    /// <summary>
+    /// Current normalized SAPC signal value (0.0 to 1.0).
+    /// </summary>
+    public float CurrentValue { get; private set; } = 0.5f;
 
     private Thread receiveThread;
     private UdpClient client;
@@ -300,6 +292,8 @@ public class SAPCReceiver : MonoBehaviour
         string invalidText = "";
 
         lock (lockObject) { target = sapcValue; }
+        
+        CurrentValue = target;
 
         lock (lockObject)
         {
@@ -317,17 +311,6 @@ public class SAPCReceiver : MonoBehaviour
                 hasInvalidPacket = false;
             }
         }
-
-        float visualScale = Mathf.Lerp(minScale, maxScale, target);
-        Vector3 targetScale = new Vector3(visualScale, visualScale, visualScale);
-        Transform scaleTarget = targetTransform != null ? targetTransform : transform;
-
-        // Extra visual smoothing to hide sender/render rate mismatch
-        scaleTarget.localScale = Vector3.Lerp(
-            scaleTarget.localScale,
-            targetScale,
-            Time.deltaTime * smoothingSpeed
-        );
 
         if (verboseDebug && shouldLogValue)
         {
