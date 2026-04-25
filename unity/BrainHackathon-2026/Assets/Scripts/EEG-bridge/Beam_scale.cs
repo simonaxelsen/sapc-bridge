@@ -86,7 +86,7 @@ public class Beam_scale : MonoBehaviour
         targetCapsule.localScale = new Vector3(current.x, newY, current.z);
 
         // Directly pin center = base + up * scaleY so only the tip end moves
-        targetCapsule.position = _baseWorldPos + targetCapsule.up * newY;
+        targetCapsule.position = _baseWorldPos + targetCapsule.up * (newY * 0.5f);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
