@@ -9,10 +9,10 @@ public class DELETECOLLIDER : MonoBehaviour
         // Optional: You can check for a specific tag to prevent accidental deletion
         if (other.CompareTag("Bee")) 
         {
-        Debug.Log("Collision detected! Destroying object: " + gameObject.name);
+        Debug.Log("Collision detected! Destroying object: " + other.gameObject.name);
         
         // Destroy the game object this script is attached to
-        Destroy(gameObject);
+        Destroy(other.gameObject);
         }
     }
 }
