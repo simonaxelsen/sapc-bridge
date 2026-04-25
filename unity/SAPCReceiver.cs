@@ -20,7 +20,11 @@ using System.Threading;
 public class SAPCReceiver : MonoBehaviour
 {
     [Header("Network")]
-    public int port = 5005;
+    public int port = 1000;
+
+    [Header("Debug")]
+    [Tooltip("Print received values to console")]
+    public bool verboseDebug = true;
 
     [Header("Sphere scaling")]
     [Tooltip("Minimum sphere scale when control value is 0.0")]
@@ -81,13 +85,16 @@ public class SAPCReceiver : MonoBehaviour
                 if (ok && !float.IsNaN(parsed) && parsed >= 0f && parsed <= 1f)
                 {
                     lock (lockObject) { sapcValue = parsed; }
+
+                    if (verboseDebug)
+                        Debug.Log($"EEG: {parsed:F4}");
                 }
             }
             catch (SocketException)
             {
                 // Receive timeout — normal, keep looping
             }
-            catch (ObjectDisposedException)
+            catch (System.ObjectDisposedException)
             {
                 break;
             }
