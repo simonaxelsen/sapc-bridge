@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -24,23 +25,40 @@ public class Beam_scale : MonoBehaviour
     public float smoothing = 8f;
 
     [Header("Dev Controls")]
-    [Tooltip("Enable arrow-key rotation in Play mode")]
-    public bool devRotationEnabled = true;
+    [Tooltip("Enable dev controls in Play mode")]
+    public bool devControlsEnabled = true;
 
-    [Tooltip("Degrees per second when holding an arrow key")]
+    [Tooltip("Degrees per second when rotating")]
     public float rotationSpeed = 90f;
+
+    [Tooltip("Units per second when moving")]
+    public float moveSpeed = 3f;
+
+    [Header("Dev UI Buttons")]
+    [Tooltip("Button that activates Rotate mode")]
+    public Button rotateModeButton;
+
+    [Tooltip("Button that activates Move mode")]
+    public Button moveModeButton;
+
+    [Header("Button Colors")]
+    public Color activeColor   = new Color(0.2f, 0.6f, 1f);    // blue  — active mode
+    public Color inactiveColor = new Color(0.25f, 0.25f, 0.25f); // dark grey — inactive
 
     [Header("Debug")]
     [Tooltip("Print received values to console")]
     public bool verboseDebug = true;
 
-    private Thread receiveThread;
-    private UdpClient client;
-    private float receivedValue = 0f;
-    private readonly object lockObject = new object();
-    private volatile bool isRunning = false;
+    // ── internals ────────────────────────────────────────────────────────────
+    private enum DevMode { Rotate, Move }
+    private DevMode _devMode = DevMode.Rotate;
 
-    // World-space position of the base (bottom tip) — stays fixed as Y scales
+    private Thread    receiveThread;
+    private UdpClient client;
+    private float     receivedValue = 0f;
+    private readonly object lockObject = new object();
+    private volatile bool   isRunning  = false;
+
     private Vector3 _baseWorldPos;
 
     void Start()
@@ -50,8 +68,13 @@ public class Beam_scale : MonoBehaviour
         if (targetCapsule == null)
             targetCapsule = transform;
 
-        // Snapshot the base anchor in world space
         _baseWorldPos = GetBaseWorldPos();
+
+        // Wire up buttons
+        if (rotateModeButton != null) rotateModeButton.onClick.AddListener(() => SetMode(DevMode.Rotate));
+        if (moveModeButton   != null) moveModeButton.onClick.AddListener(  () => SetMode(DevMode.Move));
+
+        RefreshButtonColors();
 
         try
         {
@@ -88,42 +111,68 @@ public class Beam_scale : MonoBehaviour
                 if (ok && !float.IsNaN(parsed) && parsed >= 0f && parsed <= 1f)
                 {
                     lock (lockObject) { receivedValue = parsed; }
-
-                    if (verboseDebug)
-                        Debug.Log($"EEG: {parsed:F4}");
+                    if (verboseDebug) Debug.Log($"EEG: {parsed:F4}");
                 }
             }
             catch (SocketException) { }
             catch (System.ObjectDisposedException) { break; }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"Beam_scale: {e.Message}");
-            }
+            catch (System.Exception e) { Debug.LogWarning($"Beam_scale: {e.Message}"); }
         }
     }
 
     void Update()
     {
-        HandleDevRotation();
+        if (devControlsEnabled) HandleArrowKeys();
         HandleScaling();
     }
 
-    // ── Arrow-key rotation (Z axis, so beam sweeps in the XY plane) ──────────
-    private void HandleDevRotation()
+    // ── Mode switching ────────────────────────────────────────────────────────
+    private void SetMode(DevMode mode)
     {
-        if (!devRotationEnabled) return;
+        _devMode = mode;
+        RefreshButtonColors();
+        Debug.Log($"Beam_scale dev mode: {_devMode}");
+    }
 
-        float rotInput = 0f;
-        if (Keyboard.current.leftArrowKey.isPressed)  rotInput =  1f;
-        if (Keyboard.current.rightArrowKey.isPressed) rotInput = -1f;
+    private void RefreshButtonColors()
+    {
+        SetButtonColor(rotateModeButton, _devMode == DevMode.Rotate ? activeColor : inactiveColor);
+        SetButtonColor(moveModeButton,   _devMode == DevMode.Move   ? activeColor : inactiveColor);
+    }
 
-        if (rotInput == 0f) return;
+    private void SetButtonColor(Button btn, Color color)
+    {
+        if (btn == null) return;
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = color;
+        cb.highlightedColor = Color.Lerp(color, Color.white, 0.2f);
+        cb.pressedColor     = Color.Lerp(color, Color.black, 0.2f);
+        btn.colors          = cb;
+    }
 
-        // Rotate around Z, pivoting about the base anchor so it swings like a turret
-        targetCapsule.RotateAround(_baseWorldPos, Vector3.forward, rotInput * rotationSpeed * Time.deltaTime);
+    // ── Arrow keys ────────────────────────────────────────────────────────────
+    private void HandleArrowKeys()
+    {
+        float input = 0f;
+        // 1 = Rotate mode, 2 = Move mode
+        if (Keyboard.current.digit1Key.wasPressedThisFrame) SetMode(DevMode.Rotate);
+        if (Keyboard.current.digit2Key.wasPressedThisFrame) SetMode(DevMode.Move);
 
-        // After rotating, re-lock the base to its fixed world position
-        RepositionToBase();
+        if (Keyboard.current.leftArrowKey.isPressed)  input =  1f;
+        if (Keyboard.current.rightArrowKey.isPressed) input = -1f;
+        if (input == 0f) return;
+
+        if (_devMode == DevMode.Rotate)
+        {
+            targetCapsule.RotateAround(_baseWorldPos, Vector3.forward,
+                                       input * rotationSpeed * Time.deltaTime);
+            RepositionToBase();
+        }
+        else
+        {
+            _baseWorldPos += Vector3.right * input * moveSpeed * Time.deltaTime;
+            RepositionToBase();
+        }
     }
 
     // ── Y-only scaling anchored to the base ──────────────────────────────────
@@ -132,31 +181,21 @@ public class Beam_scale : MonoBehaviour
         float rawValue;
         lock (lockObject) { rawValue = receivedValue; }
 
-        float targetY = Mathf.Lerp(minScale, maxScale, rawValue);
+        float targetY   = Mathf.Lerp(minScale, maxScale, rawValue);
         Vector3 current = targetCapsule.localScale;
-        float newY = Mathf.Lerp(current.y, targetY, Time.deltaTime * smoothing);
+        float newY      = Mathf.Lerp(current.y, targetY, Time.deltaTime * smoothing);
 
         targetCapsule.localScale = new Vector3(current.x, newY, current.z);
-
-        // Directly pin center = base + up * scaleY so only the tip end moves
-        targetCapsule.position = _baseWorldPos + targetCapsule.up * newY;
+        targetCapsule.position   = _baseWorldPos + targetCapsule.up * newY;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    private Vector3 GetBaseWorldPos() =>
+        targetCapsule.position - targetCapsule.up * targetCapsule.localScale.y;
 
-    // World-space base = center minus up * scaleY
-    private Vector3 GetBaseWorldPos()
-    {
-        return targetCapsule.position - targetCapsule.up * targetCapsule.localScale.y;
-    }
-
-    // After rotation, repin position so base stays locked
-    private void RepositionToBase()
-    {
+    private void RepositionToBase() =>
         targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
-    }
 
-    // Show base anchor and current base point in the editor
     void OnDrawGizmosSelected()
     {
         if (targetCapsule == null) return;
@@ -170,7 +209,7 @@ public class Beam_scale : MonoBehaviour
     private void Cleanup()
     {
         isRunning = false;
-        if (client != null)       { client.Close(); client = null; }
+        if (client != null) { client.Close(); client = null; }
         if (receiveThread != null && receiveThread.IsAlive) { receiveThread.Join(1000); receiveThread = null; }
     }
 }

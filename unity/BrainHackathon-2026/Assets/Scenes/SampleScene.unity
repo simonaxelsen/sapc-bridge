@@ -329,10 +329,8 @@ MonoBehaviour:
   verboseDebug: 1
   debugLogRateHz: 10
   logInvalidPackets: 1
-  targetTransform: {fileID: 0}
-  minScale: 0.5
-  maxScale: 3
-  smoothingSpeed: 8
+  floatValueIndex: -1
+  autoEdgeEpsilon: 0.01
 --- !u!1 &276315886
 GameObject:
   m_ObjectHideFlags: 0
@@ -344,14 +342,15 @@ GameObject:
   - component: {fileID: 276315887}
   - component: {fileID: 276315890}
   - component: {fileID: 276315889}
-  - component: {fileID: 276315888}
+  - component: {fileID: 276315891}
+  - component: {fileID: 276315892}
   m_Layer: 5
   m_Name: Image
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &276315887
 RectTransform:
   m_ObjectHideFlags: 0
@@ -371,26 +370,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &276315888
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 276315886}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 58f93154c16267a4b9d02a015dea032b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SAPCReceiver
-  port: 1000
-  verboseDebug: 1
-  debugLogRateHz: 10
-  logInvalidPackets: 1
-  targetTransform: {fileID: 276315887}
-  minScale: 0.5
-  maxScale: 3
-  smoothingSpeed: 8
 --- !u!114 &276315889
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -429,6 +408,42 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 276315886}
   m_CullTransparentMesh: 1
+--- !u!114 &276315891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 276315886}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 241f4fa8c19da6b4ab0b530cb1f18e40, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ImageReceiver
+  port: 1000
+  targetImage: {fileID: 276315889}
+  minScale: 0.1
+  maxScale: 2
+  smoothing: 8
+  verboseDebug: 1
+--- !u!114 &276315892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 276315886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58f93154c16267a4b9d02a015dea032b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SAPCReceiver
+  port: 1000
+  verboseDebug: 1
+  debugLogRateHz: 10
+  logInvalidPackets: 1
+  floatValueIndex: -1
+  autoEdgeEpsilon: 0.01
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -813,34 +828,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 540894139}
-  - component: {fileID: 540894138}
+  - component: {fileID: 540894140}
   m_Layer: 0
-  m_Name: SAPCReceiver
+  m_Name: OldSAPCReceiver
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!114 &540894138
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 540894137}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 58f93154c16267a4b9d02a015dea032b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SAPCReceiver
-  port: 1000
-  verboseDebug: 1
-  debugLogRateHz: 10
-  logInvalidPackets: 1
-  targetTransform: {fileID: 0}
-  minScale: 0.5
-  maxScale: 3
-  smoothingSpeed: 8
+  m_IsActive: 1
 --- !u!4 &540894139
 Transform:
   m_ObjectHideFlags: 0
@@ -856,6 +851,22 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &540894140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 540894137}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4ac90b14a62561498b7154e3b96459d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::old_SAPCReceiver
+  port: 1000
+  minScale: 0.5
+  maxScale: 3
+  smoothingSpeed: 8
 --- !u!1 &695002685
 GameObject:
   m_ObjectHideFlags: 0
@@ -1095,6 +1106,68 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1792166519}
   m_CullTransparentMesh: 1
+--- !u!1 &1876814001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1876814003}
+  - component: {fileID: 1876814002}
+  m_Layer: 0
+  m_Name: three
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1876814002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1876814001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f0b4027744f59d469168e825f573209, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Three_values
+  port: 1000
+  channelsPerSample: 8
+  samplesPerPacket: 0
+  bigEndian: 0
+  c3Index: 1
+  czIndex: 2
+  c4Index: 3
+  rectify: 1
+  smoothFactor: 0.92
+  epsilon: 0.000001
+  maxDecay: 0.999
+  enableBeamScaling: 0
+  minScale: 0.1
+  maxScale: 2
+  smoothing: 8
+  targetCapsule: {fileID: 0}
+  verboseDebug: 1
+  debugLogRateHz: 10
+--- !u!4 &1876814003
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1876814001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -374.64038, y: -0, z: 70.64414}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1909573993
 GameObject:
   m_ObjectHideFlags: 0
@@ -1180,3 +1253,4 @@ SceneRoots:
   - {fileID: 195126343}
   - {fileID: 695002688}
   - {fileID: 540894139}
+  - {fileID: 1876814003}
