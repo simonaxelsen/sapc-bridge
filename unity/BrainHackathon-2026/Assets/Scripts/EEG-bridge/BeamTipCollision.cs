@@ -9,6 +9,14 @@ public class BeamTipCollision : MonoBehaviour
         if (other.CompareTag("Bee"))
         {
             Debug.Log("Hit a bee! Destroying: " + other.gameObject.name);
+
+            GazeBeautyBreakable beautyBreakable = other.GetComponentInParent<GazeBeautyBreakable>();
+            if (beautyBreakable != null && beautyBreakable.TriggerFromBeamHit())
+            {
+                return;
+            }
+
+            GpuPrefabBurstSpawner.PlayIfPresent(other.gameObject);
             Destroy(other.gameObject);
         }
     }

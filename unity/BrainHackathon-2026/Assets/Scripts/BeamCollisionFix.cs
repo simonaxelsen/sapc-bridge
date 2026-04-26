@@ -31,6 +31,13 @@ public class BeamCollisionFix : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        GazeBeautyBreakable beautyBreakable = other.GetComponentInParent<GazeBeautyBreakable>();
+        if (beautyBreakable != null && beautyBreakable.TriggerFromBeamHit())
+        {
+            Debug.Log("Beam hit beauty target: " + beautyBreakable.name);
+            return;
+        }
+
         MoveToTarget meteor = other.GetComponentInParent<MoveToTarget>();
 
         if (meteor == null)
@@ -38,6 +45,7 @@ public class BeamCollisionFix : MonoBehaviour
 
         Debug.Log("MeteorHit: " + meteor.name);
 
+        GpuPrefabBurstSpawner.PlayIfPresent(meteor.gameObject);
         Destroy(meteor.gameObject);
     }
 }

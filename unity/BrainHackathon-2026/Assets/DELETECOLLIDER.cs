@@ -10,8 +10,14 @@ public class DELETECOLLIDER : MonoBehaviour
         if (other.CompareTag("Bee")) 
         {
         Debug.Log("Collision detected! Destroying object: " + other.gameObject.name);
-        
-        // Destroy the game object this script is attached to
+
+        GazeBeautyBreakable beautyBreakable = other.GetComponentInParent<GazeBeautyBreakable>();
+        if (beautyBreakable != null && beautyBreakable.TriggerFromBeamHit())
+        {
+            return;
+        }
+
+        GpuPrefabBurstSpawner.PlayIfPresent(other.gameObject);
         Destroy(other.gameObject);
         }
     }

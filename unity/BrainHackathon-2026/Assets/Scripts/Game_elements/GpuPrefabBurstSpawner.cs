@@ -91,6 +91,8 @@ public class GpuPrefabBurstSpawner : MonoBehaviour
     [Tooltip("Optional. If left empty the component loads Assets/Resources/GpuPrefabBurstInstancedURP.shader.")]
     public Shader instancedShader;
 
+    private bool _hasPlayedBurst;
+
     public void Play()
     {
         Quaternion rotation = inheritSourceRotation ? transform.rotation : Quaternion.identity;
@@ -99,11 +101,18 @@ public class GpuPrefabBurstSpawner : MonoBehaviour
 
     public void Play(Vector3 worldPosition, Quaternion worldRotation)
     {
+        if (_hasPlayedBurst)
+        {
+            return;
+        }
+
         if (sourcePrefab == null)
         {
             Debug.LogWarning("[GpuPrefabBurstSpawner] No sourcePrefab assigned.", this);
             return;
         }
+
+        _hasPlayedBurst = true;
 
         Quaternion burstRotation = inheritSourceRotation ? worldRotation : Quaternion.identity;
 
@@ -114,6 +123,20 @@ public class GpuPrefabBurstSpawner : MonoBehaviour
         }
 
         SpawnCpuFallback(worldPosition, burstRotation);
+    }
+
+    public static void PlayIfPresent(GameObject target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        GpuPrefabBurstSpawner burst = target.GetComponentInParent<GpuPrefabBurstSpawner>();
+        if (burst != null)
+        {
+            burst.Play(target.transform.position, target.transform.rotation);
+        }
     }
 
     private void OnValidate()

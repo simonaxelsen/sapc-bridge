@@ -113,10 +113,15 @@ public class GazeBeautyBreakable : MonoBehaviour
         SetFeedbackColor(normalColor);
     }
 
-    private void TriggerBeautyEffect()
+    public bool TriggerFromBeamHit()
+    {
+        return TriggerBeautyEffect();
+    }
+
+    private bool TriggerBeautyEffect()
     {
         if (hasTriggered)
-            return;
+            return true;
 
         List<GameObject> candidatePrefabs = GetCandidatePrefabs();
         bool hasCpuEffects = candidatePrefabs.Count > 0;
@@ -124,7 +129,7 @@ public class GazeBeautyBreakable : MonoBehaviour
         if (!hasCpuEffects && !hasGpuBurst)
         {
             Debug.LogWarning(name + " has no beauty effect prefabs assigned.");
-            return;
+            return false;
         }
 
         hasTriggered = true;
@@ -142,13 +147,15 @@ public class GazeBeautyBreakable : MonoBehaviour
         if (hasCpuEffects)
         {
             StartCoroutine(SpawnEffectsSequence(candidatePrefabs));
-            return;
+            return true;
         }
 
         if (destroyOriginalAfterEffects)
         {
             Destroy(gameObject, spawnedEffectLifetime);
         }
+
+        return true;
     }
 
     private IEnumerator SpawnEffectsSequence(List<GameObject> candidatePrefabs)
