@@ -34,7 +34,7 @@ public class Beam_scale : MonoBehaviour
 
     [Header("EEG Scaling")]
     [Tooltip("Amplify EEG values to make beam scale changes more dramatic")]
-    public float eegAmplification = 3f;
+    public float eegAmplification = 5f;
     [Tooltip("Enable dev controls in Play mode")]
     public bool devControlsEnabled = true;
 
@@ -383,23 +383,24 @@ public class Beam_scale : MonoBehaviour
 
     // ── Scaling ───────────────────────────────────────────────────────────────
 
-    private void HandleScaling()
-    {
-        float rawValue;
-        lock (lockObject) { rawValue = _sapcValue; }
+private void HandleScaling()
+{
+    float rawValue;
+    lock (lockObject) { rawValue = _sapcValue; }
 
-        CurrentEEGValue = rawValue;
+    CurrentEEGValue = rawValue;
 
-        // Use EEG value (0-1) directly as the Y scale multiplier
-        Vector3 current = targetCapsule.localScale;
-        Vector3 targetScale = new Vector3(current.x, rawValue, current.z);
-        Vector3 newScale = Vector3.Lerp(current, targetScale, Time.deltaTime * smoothing * 2f);
+    float amplifiedValue = Mathf.Clamp01(rawValue * eegAmplification);
+    float targetY = Mathf.Lerp(minScale, maxScale, amplifiedValue);
 
-        targetCapsule.localScale = newScale;
-    }
+    Vector3 current = targetCapsule.localScale;
 
-    // ── Gaze horizontal movement ──────────────────────────────────────────────
+    // Fast attack when growing, slow release when shrinking
+float speed = smoothing * 3f;
 
+    float newY = Mathf.Lerp(current.y, targetY, Time.deltaTime * speed);
+    targetCapsule.localScale = new Vector3(current.x, newY, current.z);
+}
     private void HandleGazeMove()
     {
         var gazePoint = TobiiAPI.GetGazePoint();
@@ -536,12 +537,11 @@ public class Beam_scale : MonoBehaviour
             gazeCamera = Camera.main;
     }
 
-    private Vector3 GetBaseWorldPos() =>
-        targetCapsule.position - targetCapsule.up * targetCapsule.localScale.y;
-
+private Vector3 GetBaseWorldPos() =>
+    targetCapsule.position - targetCapsule.up * (targetCapsule.localScale.y * 0.5f);
     private void RepositionToBase()
     {
-        targetCapsule.position = _baseWorldPos + targetCapsule.up * targetCapsule.localScale.y;
+        targetCapsule.position = _baseWorldPos + targetCapsule.up * (targetCapsule.localScale.y / 2f);
     }
 
     /// <summary>
