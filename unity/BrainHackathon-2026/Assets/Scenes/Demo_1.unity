@@ -1871,11 +1871,11 @@ MonoBehaviour:
   meteorPrefab: {fileID: 4767537227566357339, guid: 4d3eecb013234fa48801427b2686fc99, type: 3}
   target: {fileID: 0}
   spawnYOffset: 1
-  spawnInterval: 0.8
-  maxMeteors: 10
-  minSpeed: 8
-  maxSpeed: 10
-  minScale: 10
+  spawnInterval: 3
+  maxMeteors: 3
+  minSpeed: 1
+  maxSpeed: 2
+  minScale: 6
   maxScale: 12
   meteorLifetime: 30
 --- !u!4 &1826951503
